@@ -1,0 +1,11 @@
+// Prisma configuration for Prospera Referral Platform
+// Configures PostgreSQL datasource using environment variables
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
