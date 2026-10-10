@@ -12,6 +12,16 @@ const envSchema = z.object({
     .string()
     .default('postgresql://postgres:postgres@localhost:5432/prospera_referral_db?schema=public'),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
+
+  // Authentication & Security Settings
+  OTP_SECRET: z
+    .string()
+    .min(16)
+    .default('dev-only-otp-hmac-secret-min-32-chars-long-prospera'),
+  SESSION_EXPIRY_DAYS: z.coerce.number().default(7),
+  OTP_EXPIRY_MINUTES: z.coerce.number().default(10),
+  OTP_MAX_ATTEMPTS: z.coerce.number().default(5),
+  OTP_COOLDOWN_SECONDS: z.coerce.number().default(60),
 });
 
 const parseEnv = () => {

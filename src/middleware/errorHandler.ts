@@ -21,7 +21,7 @@ export const errorHandler: ErrorRequestHandler = (
     success: false,
     error: {
       message,
-      ...(err instanceof ZodError && { details: err.errors }),
+      ...(err instanceof ZodError && { details: err.issues }),
       ...(config.NODE_ENV === 'development' && { stack: err.stack }),
     },
     timestamp: new Date().toISOString(),
