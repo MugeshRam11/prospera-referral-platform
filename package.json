@@ -9,8 +9,12 @@
     "start": "node dist/server.js",
     "lint": "eslint src tests",
     "test": "vitest run",
+    "test:unit": "vitest run --exclude \"**/integration/**\"",
+    "test:integration": "vitest run tests/integration",
     "test:watch": "vitest",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:status": "prisma migrate status"
   },
   "keywords": [
     "prospera",

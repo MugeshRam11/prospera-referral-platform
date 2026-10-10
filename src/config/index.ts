@@ -30,7 +30,15 @@ const baseEnvSchema = z.object({
   LOGIN_ACCOUNT_LOCKOUT_MINUTES: z.coerce.number().default(15),
   LOGIN_IP_MAX_FAILED_ATTEMPTS: z.coerce.number().default(20),
   LOGIN_IP_LOCKOUT_MINUTES: z.coerce.number().default(15),
-  REQUIRE_SHARED_THROTTLER: z.coerce.boolean().default(false), // SEC-02: Fail safely if cluster requires shared store
+  REQUIRE_SHARED_THROTTLER: z
+    .preprocess(
+      (val) =>
+        typeof val === 'string'
+          ? val.trim().toLowerCase() === 'true' || val.trim() === '1'
+          : Boolean(val),
+      z.boolean()
+    )
+    .default(false), // SEC-02: Fail safely if cluster requires shared store
 });
 
 // Enforce production security rules (SEC-01 & SEC-02)

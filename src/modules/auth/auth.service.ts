@@ -26,12 +26,16 @@ const DUMMY_ARGON2_HASH =
   '$argon2id$v=19$m=65536,t=3,p=4$qN8kH5L+B1o9R2sU3vW4xA$7mY2eJ1bK4wZ9vQ6pT8uC3fA5hD2sX8';
 
 export class AuthService {
-  private repo: IAuthRepository;
+  private explicitRepo?: IAuthRepository;
   private throttler: ILoginThrottler;
 
   constructor(repo?: IAuthRepository, throttler?: ILoginThrottler) {
-    this.repo = repo ?? getAuthRepository();
+    this.explicitRepo = repo;
     this.throttler = throttler ?? getLoginThrottler();
+  }
+
+  private get repo(): IAuthRepository {
+    return this.explicitRepo ?? getAuthRepository();
   }
 
   // Helper: Secure keyed HMAC for OTP

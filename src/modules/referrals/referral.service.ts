@@ -17,10 +17,14 @@ import { AppError } from '../auth/auth.service';
 import crypto from 'crypto';
 
 export class ReferralService {
-  private repo: IReferralRepository;
+  private explicitRepo?: IReferralRepository;
 
   constructor(repo?: IReferralRepository) {
-    this.repo = repo ?? getReferralRepository();
+    this.explicitRepo = repo;
+  }
+
+  private get repo(): IReferralRepository {
+    return this.explicitRepo ?? getReferralRepository();
   }
 
   /**
