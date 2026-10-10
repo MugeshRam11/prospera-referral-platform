@@ -3,3 +3,4 @@ export * from './auth/auth.service';
 export * from './auth/auth.repository';
 export * from './auth/auth.controller';
 export * from './auth/auth.routes';
+export * from './auth/loginThrottler';

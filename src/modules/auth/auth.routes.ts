@@ -40,7 +40,7 @@ router.get(
 router.get(
   '/coordinator-only',
   authenticate,
-  authorize(Role.COORDINATOR, Role.ADMIN),
+  authorize([Role.COORDINATOR, Role.ADMIN]),
   (_req, res) => {
     res.status(200).json({
       success: true,

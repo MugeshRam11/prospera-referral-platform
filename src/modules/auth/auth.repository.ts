@@ -39,6 +39,9 @@ export interface IAuthRepository {
   createOtpChallenge(data: OtpCreateInput): Promise<OtpChallenge>;
   findLatestOtpChallenge(email: string, purpose: OtpPurpose): Promise<OtpChallenge | null>;
   updateOtpChallenge(id: string, data: Partial<OtpChallenge>): Promise<OtpChallenge>;
+  incrementOtpAttempts(id: string): Promise<{ attemptsCount: number; maxAttempts: number; isConsumed: boolean }>;
+  consumeOtpChallenge(id: string): Promise<boolean>;
+  invalidateActiveOtpChallenges(email: string, purpose: OtpPurpose): Promise<number>;
 
   createSession(data: SessionCreateInput): Promise<Session>;
   findSessionByTokenHash(tokenHash: string): Promise<(Session & { user: User }) | null>;
@@ -50,7 +53,7 @@ export interface IAuthRepository {
 
 export class PrismaAuthRepository implements IAuthRepository {
   async findUserByEmail(email: string): Promise<User | null> {
-    return prisma.user.findUnique({ where: { email } });
+    return prisma.user.findUnique({ where: { email: email.toLowerCase() } });
   }
 
   async findUserById(id: string): Promise<User | null> {
@@ -58,7 +61,12 @@ export class PrismaAuthRepository implements IAuthRepository {
   }
 
   async createUser(data: UserCreateInput): Promise<User> {
-    return prisma.user.create({ data });
+    return prisma.user.create({
+      data: {
+        ...data,
+        email: data.email.toLowerCase(),
+      },
+    });
   }
 
   async updateUser(id: string, data: Partial<User>): Promise<User> {
@@ -66,18 +74,61 @@ export class PrismaAuthRepository implements IAuthRepository {
   }
 
   async createOtpChallenge(data: OtpCreateInput): Promise<OtpChallenge> {
-    return prisma.otpChallenge.create({ data });
+    return prisma.otpChallenge.create({
+      data: {
+        ...data,
+        email: data.email.toLowerCase(),
+      },
+    });
   }
 
   async findLatestOtpChallenge(email: string, purpose: OtpPurpose): Promise<OtpChallenge | null> {
     return prisma.otpChallenge.findFirst({
-      where: { email, purpose },
+      where: { email: email.toLowerCase(), purpose },
       orderBy: { createdAt: 'desc' },
     });
   }
 
   async updateOtpChallenge(id: string, data: Partial<OtpChallenge>): Promise<OtpChallenge> {
     return prisma.otpChallenge.update({ where: { id }, data });
+  }
+
+  /**
+   * Atomic increment for OTP attempts to prevent concurrency race conditions (SEC-03)
+   */
+  async incrementOtpAttempts(id: string): Promise<{ attemptsCount: number; maxAttempts: number; isConsumed: boolean }> {
+    const updated = await prisma.otpChallenge.update({
+      where: { id },
+      data: { attemptsCount: { increment: 1 } },
+    });
+    return {
+      attemptsCount: updated.attemptsCount,
+      maxAttempts: updated.maxAttempts,
+      isConsumed: updated.consumedAt !== null,
+    };
+  }
+
+  /**
+   * Atomic conditional consumption of OTP challenge (SEC-03 / SEC-04)
+   * Enforces single-use verification under concurrent requests.
+   */
+  async consumeOtpChallenge(id: string): Promise<boolean> {
+    const res = await prisma.otpChallenge.updateMany({
+      where: { id, consumedAt: null },
+      data: { consumedAt: new Date() },
+    });
+    return res.count > 0;
+  }
+
+  /**
+   * Invalidate prior active unconsumed OTP challenges when issuing a replacement (SEC-04)
+   */
+  async invalidateActiveOtpChallenges(email: string, purpose: OtpPurpose): Promise<number> {
+    const res = await prisma.otpChallenge.updateMany({
+      where: { email: email.toLowerCase(), purpose, consumedAt: null },
+      data: { consumedAt: new Date() },
+    });
+    return res.count;
   }
 
   async createSession(data: SessionCreateInput): Promise<Session> {
@@ -141,7 +192,7 @@ export class InMemoryAuthRepository implements IAuthRepository {
     const now = new Date();
     const user: User = {
       id,
-      email: data.email,
+      email: data.email.toLowerCase(),
       passwordHash: data.passwordHash,
       fullName: data.fullName,
       phone: data.phone ?? null,
@@ -180,7 +231,7 @@ export class InMemoryAuthRepository implements IAuthRepository {
     const challenge: OtpChallenge = {
       id,
       userId: data.userId ?? null,
-      email: data.email,
+      email: data.email.toLowerCase(),
       codeHash: data.codeHash,
       purpose: data.purpose,
       attemptsCount: 0,
@@ -217,6 +268,53 @@ export class InMemoryAuthRepository implements IAuthRepository {
     };
     this.otpChallenges.set(id, updated);
     return { ...updated };
+  }
+
+  /**
+   * Atomic increment for in-memory repo (SEC-03)
+   */
+  async incrementOtpAttempts(id: string): Promise<{ attemptsCount: number; maxAttempts: number; isConsumed: boolean }> {
+    const existing = this.otpChallenges.get(id);
+    if (!existing) {
+      throw new Error(`OtpChallenge ${id} not found`);
+    }
+    existing.attemptsCount += 1;
+    return {
+      attemptsCount: existing.attemptsCount,
+      maxAttempts: existing.maxAttempts,
+      isConsumed: existing.consumedAt !== null,
+    };
+  }
+
+  /**
+   * Atomic conditional consumption for in-memory repo (SEC-03 / SEC-04)
+   */
+  async consumeOtpChallenge(id: string): Promise<boolean> {
+    const existing = this.otpChallenges.get(id);
+    if (!existing || existing.consumedAt !== null) {
+      return false;
+    }
+    existing.consumedAt = new Date();
+    return true;
+  }
+
+  /**
+   * Invalidate prior active challenges (SEC-04)
+   */
+  async invalidateActiveOtpChallenges(email: string, purpose: OtpPurpose): Promise<number> {
+    let count = 0;
+    const now = new Date();
+    for (const challenge of this.otpChallenges.values()) {
+      if (
+        challenge.email.toLowerCase() === email.toLowerCase() &&
+        challenge.purpose === purpose &&
+        challenge.consumedAt === null
+      ) {
+        challenge.consumedAt = now;
+        count++;
+      }
+    }
+    return count;
   }
 
   async createSession(data: SessionCreateInput): Promise<Session> {
