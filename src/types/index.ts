@@ -1,4 +1,5 @@
-import { Role, AccountStatus } from '@prisma/client';
+import { Role, AccountStatus, OtpPurpose } from '@prisma/client';
+export { Role, AccountStatus, OtpPurpose };
 
 export interface ApiResponse<T = unknown> {
   success: boolean;

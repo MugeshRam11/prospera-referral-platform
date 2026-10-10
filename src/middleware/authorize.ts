@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { Role } from '@prisma/client';
-import { ApiResponse } from '../types';
+import { Role, ApiResponse } from '../types';
 
 /**
  * Deny-by-default role-based access control middleware.

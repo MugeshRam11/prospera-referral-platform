@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
-import { Role, AccountStatus, OtpPurpose } from '@prisma/client';
+import { Role, AccountStatus, OtpPurpose } from '../src/types';
 import { app } from '../src/app';
 import { getAuthRepository, InMemoryAuthRepository } from '../src/modules/auth/auth.repository';
 import argon2 from 'argon2';
