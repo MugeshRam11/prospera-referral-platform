@@ -20,7 +20,11 @@ export const validateQuery = (schema: ZodSchema) => {
       next(result.error);
       return;
     }
-    req.query = result.data as unknown as Request['query'];
+    Object.defineProperty(req, 'query', {
+      value: result.data,
+      writable: true,
+      configurable: true,
+    });
     next();
   };
 };
