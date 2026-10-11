@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* ==========================================================================
    PROSPERA CORPORATE REFERRAL PLATFORM - GLOBAL DESIGN SYSTEM
    Modern Corporate Dashboard: Navy Sidebar, Clean White Workspace, Blue Accents

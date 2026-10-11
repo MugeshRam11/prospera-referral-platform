@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Building2, Lock, Mail, ArrowRight, AlertCircle, ShieldCheck } from 'lucide-react';
+import Image from 'next/image';
+import { Lock, Mail, ArrowRight, AlertCircle, ShieldCheck } from 'lucide-react';
 import { ApiClient } from '../../../lib/api';
+import prosperaLogo from '../../../assets/prospera-logo.png';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('ahmed.mansoori@apexadvisory.ae');
@@ -70,23 +72,27 @@ export default function LoginPage() {
         >
           <div
             style={{
-              width: '48px',
-              height: '48px',
-              backgroundColor: 'var(--blue-primary)',
+              display: 'inline-flex',
+              backgroundColor: '#ffffff',
               borderRadius: 'var(--radius-md)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 14px',
+              padding: '10px 18px',
+              marginBottom: '16px',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
             }}
           >
-            <Building2 size={26} color="#ffffff" />
+            <Image
+              src={prosperaLogo}
+              alt="Prospera"
+              height={36}
+              style={{ height: '36px', width: 'auto', objectFit: 'contain' }}
+              priority
+            />
           </div>
-          <h1 style={{ fontSize: '1.45rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-            PROSPERA
+          <h1 style={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+            Corporate Partner Portal
           </h1>
           <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            Corporate Partner Portal
+            UAE & Middle East Referral Management
           </p>
         </div>
 

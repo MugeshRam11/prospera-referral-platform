@@ -19,6 +19,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
   const [bankAccounts, setBankAccounts] = useState<BankAccountItem[]>([]);
   const [withdrawableBalance, setWithdrawableBalance] = useState<number>(0);
   const [activeLeadsCount, setActiveLeadsCount] = useState<number>(0);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Modal States
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -53,7 +54,6 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
 
   const handleReferralCreated = async (newLead: LeadItem) => {
     setActiveLeadsCount((prev) => prev + 1);
-    // Trigger custom event so page components can re-fetch
     window.dispatchEvent(new CustomEvent('prospera_referral_created', { detail: newLead }));
   };
 
@@ -63,7 +63,6 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
     window.dispatchEvent(new CustomEvent('prospera_withdrawal_created', { detail: newWithdrawal }));
   };
 
-  // Expose global modal triggers via window event
   useEffect(() => {
     const handleOpenDetail = (e: CustomEvent<LeadItem>) => {
       setActiveDetailLead(e.detail);
@@ -87,21 +86,27 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
   }, []);
 
   return (
-    <div className="app-container">
-      {/* Navy Sidebar */}
-      <Sidebar user={user} activeReferralCount={activeLeadsCount} />
+    <div className="min-h-screen bg-[#F8FAFC]">
+      {/* Navy Sidebar with Mobile Drawer support */}
+      <Sidebar
+        user={user}
+        activeReferralCount={activeLeadsCount}
+        isOpenMobile={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
+      />
 
       {/* Main Workspace Area */}
-      <div className="main-wrapper">
+      <div className="lg:pl-64 flex flex-col min-h-screen">
         <Header
           user={user}
           onOpenNewReferralModal={() => setIsCreateModalOpen(true)}
+          onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           onSearch={(q) => {
             window.dispatchEvent(new CustomEvent('prospera_search_query', { detail: q }));
           }}
         />
 
-        <main className="workspace-content">{children}</main>
+        <main className="flex-1 p-5 sm:p-7 max-w-7xl w-full mx-auto">{children}</main>
       </div>
 
       {/* Global Modals */}

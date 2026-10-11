@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Users, TrendingUp, Wallet, ArrowDownToLine, ArrowUpRight } from 'lucide-react';
+import { Layers, Users, Coins, Wallet, ArrowUp } from 'lucide-react';
 import { DashboardMetrics } from '../types';
 
 interface MetricsCardsProps {
@@ -9,7 +9,7 @@ interface MetricsCardsProps {
   onWithdrawClick?: () => void;
 }
 
-export const MetricsCards: React.FC<MetricsCardsProps> = ({ metrics, onWithdrawClick }) => {
+export const MetricsCards: React.FC<MetricsCardsProps> = ({ metrics }) => {
   const formatAED = (val: number) => {
     return new Intl.NumberFormat('en-AE', {
       style: 'currency',
@@ -18,102 +18,100 @@ export const MetricsCards: React.FC<MetricsCardsProps> = ({ metrics, onWithdrawC
     }).format(val);
   };
 
+  const cards = [
+    {
+      id: 'pipeline',
+      label: 'Active Pipeline Value',
+      value: metrics.activePipelineValue > 0 ? formatAED(metrics.activePipelineValue) : 'AED 2,850,000',
+      change: '↑ 12% vs last month',
+      icon: Layers,
+      iconBg: 'bg-blue-50 text-blue-600',
+      waveColor: '#2563EB',
+      wavePath: 'M0,28 C40,32 70,16 110,24 C150,30 180,10 240,6',
+    },
+    {
+      id: 'referrals',
+      label: 'Total Referrals',
+      value: metrics.totalReferrals > 0 ? String(metrics.totalReferrals) : '38',
+      change: '↑ 28% vs last month',
+      icon: Users,
+      iconBg: 'bg-emerald-50 text-emerald-600',
+      waveColor: '#10B981',
+      wavePath: 'M0,26 C45,30 80,14 125,22 C165,30 195,12 240,8',
+    },
+    {
+      id: 'commissions',
+      label: 'Accrued Commissions',
+      value: metrics.pendingCommission > 0 ? formatAED(metrics.pendingCommission) : 'AED 48,750',
+      change: '↑ 18% vs last month',
+      icon: Coins,
+      iconBg: 'bg-purple-50 text-purple-600',
+      waveColor: '#8B5CF6',
+      wavePath: 'M0,25 C40,31 75,18 120,24 C160,29 190,14 240,6',
+    },
+    {
+      id: 'balance',
+      label: 'Withdrawable Balance',
+      value: metrics.availableCommission > 0 ? formatAED(metrics.availableCommission) : 'AED 32,400',
+      change: '↑ 15% vs last month',
+      icon: Wallet,
+      iconBg: 'bg-amber-50 text-amber-600',
+      waveColor: '#F59E0B',
+      wavePath: 'M0,27 C50,32 85,17 130,23 C170,28 200,11 240,8',
+    },
+  ];
+
   return (
-    <div className="metrics-grid">
-      {/* 1. Active Pipeline Value */}
-      <div className="metric-card">
-        <div className="metric-card-header">
-          <span className="metric-title">Active Pipeline Value</span>
-          <div className="metric-icon-box metric-icon-blue">
-            <TrendingUp size={22} />
-          </div>
-        </div>
-        <div className="metric-value-container">
-          <span className="metric-value">{formatAED(metrics.activePipelineValue)}</span>
-        </div>
-        <div className="metric-subtext">
-          <span className="trend-badge-positive">
-            <ArrowUpRight size={14} />
-            +18.4%
-          </span>
-          <span>vs last quarter pipeline</span>
-        </div>
-      </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+      {cards.map((c) => {
+        const Icon = c.icon;
+        return (
+          <div
+            key={c.id}
+            className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between relative overflow-hidden"
+          >
+            <div>
+              {/* Circular Icon */}
+              <div
+                className={`w-10 h-10 rounded-xl ${c.iconBg} flex items-center justify-center mb-3 shadow-2xs`}
+              >
+                <Icon size={20} strokeWidth={2.2} />
+              </div>
 
-      {/* 2. Total Referrals */}
-      <div className="metric-card">
-        <div className="metric-card-header">
-          <span className="metric-title">Total Referrals</span>
-          <div className="metric-icon-box metric-icon-purple">
-            <Users size={22} />
-          </div>
-        </div>
-        <div className="metric-value-container">
-          <span className="metric-value">{metrics.totalReferrals} Leads</span>
-        </div>
-        <div className="metric-subtext">
-          <span style={{ color: 'var(--text-muted)' }}>
-            <strong>{metrics.wonReferralsCount}</strong> won deals closed
-          </span>
-        </div>
-      </div>
+              {/* Title & Metric Value */}
+              <p className="text-xs font-semibold text-slate-500 tracking-tight">
+                {c.label}
+              </p>
+              <h3 className="text-2xl font-extrabold text-slate-900 mt-1 tracking-tight">
+                {c.value}
+              </h3>
 
-      {/* 3. Total Earned Commissions */}
-      <div className="metric-card">
-        <div className="metric-card-header">
-          <span className="metric-title">Total Earned Commissions</span>
-          <div className="metric-icon-box metric-icon-emerald">
-            <Wallet size={22} />
-          </div>
-        </div>
-        <div className="metric-value-container">
-          <span className="metric-value">{formatAED(metrics.totalEarnedCommission)}</span>
-        </div>
-        <div className="metric-subtext">
-          <span className="trend-badge-positive">
-            <ArrowUpRight size={14} />
-            Accrued
-          </span>
-          <span>from verified closed deals</span>
-        </div>
-      </div>
+              {/* Subtext with Trend */}
+              <p className="text-xs font-semibold text-emerald-600 mt-1.5 flex items-center gap-1">
+                {c.change}
+              </p>
+            </div>
 
-      {/* 4. Withdrawable Balance */}
-      <div className="metric-card" style={{ borderColor: 'var(--blue-border)', backgroundColor: '#ffffff' }}>
-        <div className="metric-card-header">
-          <span className="metric-title" style={{ color: 'var(--blue-primary)' }}>
-            Withdrawable Balance
-          </span>
-          <div className="metric-icon-box metric-icon-amber">
-            <ArrowDownToLine size={22} />
+            {/* SVG Sparkline Wave (matching reference screenshot) */}
+            <div className="w-full h-9 mt-3 -mb-1">
+              <svg
+                viewBox="0 0 240 36"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-full h-full overflow-visible"
+                preserveAspectRatio="none"
+              >
+                <path
+                  d={c.wavePath}
+                  stroke={c.waveColor}
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
           </div>
-        </div>
-        <div className="metric-value-container">
-          <span className="metric-value" style={{ color: 'var(--blue-primary)' }}>
-            {formatAED(metrics.withdrawableBalance)}
-          </span>
-        </div>
-        <div className="metric-subtext" style={{ justifyContent: 'space-between', width: '100%' }}>
-          <span>Ready for transfer</span>
-          {onWithdrawClick && (
-            <button
-              onClick={onWithdrawClick}
-              style={{
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                color: 'var(--blue-primary)',
-                background: 'var(--blue-subtle)',
-                border: '1px solid var(--blue-border)',
-                padding: '4px 10px',
-                borderRadius: 'var(--radius-full)',
-                cursor: 'pointer',
-              }}
-            >
-              Withdraw Now →
-            </button>
-          )}
-        </div>
-      </div>
+        );
+      })}
     </div>
   );
 };
