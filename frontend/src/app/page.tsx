@@ -227,14 +227,14 @@ export default function DashboardPage() {
       <MetricsCards
         metrics={
           metrics || {
-            activePipelineValue: 2850000,
             totalReferrals: 38,
-            pendingCommission: 48750,
-            availableCommission: 32400,
-            withdrawableBalance: 32400,
-            paidCommission: 0,
+            activePipelineValue: 2850000,
             wonReferralsCount: 14,
-            inProgressCount: 22,
+            wonReferralsValue: 1250000,
+            totalEarnedCommission: 48750,
+            withdrawableBalance: 32400,
+            pendingClearanceCommission: 48750,
+            payoutsProcessed: 0,
           }
         }
         onWithdrawClick={openWithdrawModal}
@@ -360,7 +360,7 @@ export default function DashboardPage() {
                       key={item.id}
                       className="hover:bg-slate-50/70 transition-colors group cursor-pointer"
                       onClick={() => {
-                        const matchedLead = leads.find((l) => l.referenceNumber === item.id);
+                        const matchedLead = leads.find((l) => l.referenceNo === item.id);
                         if (matchedLead) {
                           openDetailModal(matchedLead);
                         } else {

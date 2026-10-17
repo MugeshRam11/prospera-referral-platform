@@ -42,7 +42,7 @@ export const MetricsCards: React.FC<MetricsCardsProps> = ({ metrics }) => {
     {
       id: 'commissions',
       label: 'Accrued Commissions',
-      value: metrics.pendingCommission > 0 ? formatAED(metrics.pendingCommission) : 'AED 48,750',
+      value: metrics.pendingClearanceCommission > 0 ? formatAED(metrics.pendingClearanceCommission) : 'AED 48,750',
       change: '↑ 18% vs last month',
       icon: Coins,
       iconBg: 'bg-purple-50 text-purple-600',
@@ -52,7 +52,7 @@ export const MetricsCards: React.FC<MetricsCardsProps> = ({ metrics }) => {
     {
       id: 'balance',
       label: 'Withdrawable Balance',
-      value: metrics.availableCommission > 0 ? formatAED(metrics.availableCommission) : 'AED 32,400',
+      value: metrics.withdrawableBalance > 0 ? formatAED(metrics.withdrawableBalance) : 'AED 32,400',
       change: '↑ 15% vs last month',
       icon: Wallet,
       iconBg: 'bg-amber-50 text-amber-600',
