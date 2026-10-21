@@ -16,6 +16,7 @@ describe('PostgreSQL Database Integration Tests (Real Database Verification)', (
   const createdLeadIds: string[] = [];
   const createdServiceIds: string[] = [];
   const createdCategoryIds: string[] = [];
+  const createdOtpIds: string[] = [];
 
   beforeAll(async () => {
     try {
@@ -25,13 +26,13 @@ describe('PostgreSQL Database Integration Tests (Real Database Verification)', (
     } catch (err: unknown) {
       isPostgresAvailable = false;
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.warn(
+      throw new Error(
         '\n================================================================================\n' +
           '[ENVIRONMENTAL STATUS] Local PostgreSQL service is NOT reachable.\n' +
           'Connection probe to localhost:5432 failed:\n' +
           `  ${errorMessage}\n\n` +
           'To run these tests against a live database:\n' +
-          '  1. Start the isolated development database: docker compose up -d\n' +
+          '  1. Verify DATABASE_URL points to the isolated test database.\n' +
           '  2. Apply migrations: npm run migrate:deploy\n' +
           '  3. Re-run integration tests: npm run test:integration\n' +
           'See docs/dev-database-setup.md for full instructions.\n' +
@@ -48,6 +49,9 @@ describe('PostgreSQL Database Integration Tests (Real Database Verification)', (
 
     // Safe teardown: Clean up test data in reverse foreign-key dependency order
     try {
+      if (createdOtpIds.length > 0) {
+        await prisma.otpChallenge.deleteMany({ where: { id: { in: createdOtpIds } } });
+      }
       if (createdLeadIds.length > 0) {
         await prisma.leadStatusHistory.deleteMany({
           where: { leadId: { in: createdLeadIds } },
@@ -82,6 +86,7 @@ describe('PostgreSQL Database Integration Tests (Real Database Verification)', (
       }
     } catch (cleanupError) {
       console.error('Teardown warning during test cleanup:', cleanupError);
+      throw cleanupError;
     } finally {
       await prisma.$disconnect();
     }
@@ -177,6 +182,7 @@ describe('PostgreSQL Database Integration Tests (Real Database Verification)', (
         maxAttempts: 5,
         ipAddress: '127.0.0.1',
       });
+      createdOtpIds.push(challenge.id);
 
       expect(challenge.id).toBeDefined();
       expect(challenge.attemptsCount).toBe(0);
@@ -209,13 +215,14 @@ describe('PostgreSQL Database Integration Tests (Real Database Verification)', (
       const email = `replacement_${crypto.randomUUID().substring(0, 8)}@example.com`;
       const codeHash = crypto.createHash('sha256').update('999999').digest('hex');
 
-      await authRepo.createOtpChallenge({
+      const challenge = await authRepo.createOtpChallenge({
         email,
         codeHash,
         purpose: OtpPurpose.LOGIN_2FA,
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
         maxAttempts: 5,
       });
+      createdOtpIds.push(challenge.id);
 
       const invalidatedCount = await authRepo.invalidateActiveOtpChallenges(
         email,
@@ -268,8 +275,8 @@ describe('PostgreSQL Database Integration Tests (Real Database Verification)', (
       expect(revoked.revokedAt).not.toBeNull();
 
       // Bulk user session revocation
-      const token2 = crypto.createHash('sha256').update('token2').digest('hex');
-      const token3 = crypto.createHash('sha256').update('token3').digest('hex');
+      const token2 = crypto.randomBytes(32).toString('hex');
+      const token3 = crypto.randomBytes(32).toString('hex');
       await authRepo.createSession({ userId: user.id, tokenHash: token2, expiresAt });
       await authRepo.createSession({ userId: user.id, tokenHash: token3, expiresAt });
 
