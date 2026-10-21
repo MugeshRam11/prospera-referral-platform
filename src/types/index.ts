@@ -1,5 +1,28 @@
-import { Role, AccountStatus, OtpPurpose, LeadStatus } from '@prisma/client';
-export { Role, AccountStatus, OtpPurpose, LeadStatus };
+import {
+  Role,
+  AccountStatus,
+  OtpPurpose,
+  LeadStatus,
+  AgentType,
+  AgencyRole,
+  AgencyStatus,
+  InvitationStatus,
+  KycDocumentType,
+  KycStatus,
+} from '@prisma/client';
+
+export {
+  Role,
+  AccountStatus,
+  OtpPurpose,
+  LeadStatus,
+  AgentType,
+  AgencyRole,
+  AgencyStatus,
+  InvitationStatus,
+  KycDocumentType,
+  KycStatus,
+};
 
 export interface ApiResponse<T = unknown> {
   success: boolean;
@@ -25,7 +48,11 @@ export interface AuthenticatedUser {
   email: string;
   fullName: string;
   phone: string | null;
+  whatsapp?: string | null;
+  avatarUrl?: string | null;
+  brn?: string | null;
   role: Role;
+  agentType?: AgentType;
   accountStatus: AccountStatus;
   companyName: string | null;
   referralCode: string | null;

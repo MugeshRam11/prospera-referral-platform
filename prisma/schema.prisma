@@ -26,6 +26,31 @@ enum Role {
   ADMIN
 }
 
+enum AgentType {
+  INDEPENDENT
+  AGENCY_MEMBER
+}
+
+enum AgencyRole {
+  AGENCY_OWNER
+  AGENCY_ADMIN
+  AGENT
+}
+
+enum AgencyStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
 enum AccountStatus {
   PENDING_VERIFICATION
   PENDING_APPROVAL
@@ -48,6 +73,11 @@ enum KycDocumentType {
   TRADE_LICENSE
   VAT_CERTIFICATE
   BANK_STATEMENT
+  BANK_CONFIRMATION_LETTER
+  BROKER_CARD_BRN
+  ESTABLISHMENT_CARD
+  POWER_OF_ATTORNEY
+  OTHER
 }
 
 enum KycStatus {
@@ -55,6 +85,7 @@ enum KycStatus {
   VERIFIED
   REJECTED
   EXPIRED
+  CHANGES_REQUESTED
 }
 
 enum LeadStatus {
@@ -123,7 +154,12 @@ model User {
   passwordHash    String        @map("password_hash") @db.VarChar(255)
   fullName        String        @map("full_name") @db.VarChar(255)
   phone           String?       @db.VarChar(50)
+  whatsapp        String?       @db.VarChar(50)
+  avatarUrl       String?       @map("avatar_url") @db.VarChar(512)
+  brn             String?       @db.VarChar(50)
+  nationality     String?       @db.VarChar(100)
   role            Role          @default(REFERRAL_PARTNER)
+  agentType       AgentType     @default(INDEPENDENT) @map("agent_type")
   accountStatus   AccountStatus @default(PENDING_VERIFICATION) @map("account_status")
 
   // Coordinator assignment hierarchy
@@ -131,10 +167,11 @@ model User {
   coordinator     User?         @relation("CoordinatorAssignments", fields: [coordinatorId], references: [id])
   assignedUsers   User[]        @relation("CoordinatorAssignments")
 
-  companyName     String?       @map("company_name") @db.VarChar(255)
-  referralCode    String?       @unique @map("referral_code") @db.VarChar(50)
-  emailVerifiedAt DateTime?     @map("email_verified_at") @db.Timestamptz
-  kycVerifiedAt   DateTime?     @map("kyc_verified_at") @db.Timestamptz
+  companyName          String?       @map("company_name") @db.VarChar(255)
+  referralCode         String?       @unique @map("referral_code") @db.VarChar(50)
+  emailVerifiedAt      DateTime?     @map("email_verified_at") @db.Timestamptz
+  kycVerifiedAt        DateTime?     @map("kyc_verified_at") @db.Timestamptz
+  deletionRequestedAt  DateTime?     @map("deletion_requested_at") @db.Timestamptz
 
   approvedAt      DateTime?     @map("approved_at") @db.Timestamptz
   approvedById    String?       @map("approved_by_id") @db.Uuid
@@ -150,6 +187,7 @@ model User {
   kycDocuments             KycDocument[]             @relation("UserKycDocuments")
   reviewedKycDocuments     KycDocument[]             @relation("KycReviewer")
   bankAccounts             BankAccount[]
+  verifiedBankAccounts     BankAccount[]             @relation("BankAccountVerifier")
   partnerLeads             Lead[]                    @relation("PartnerLeads")
   agentLeads               Lead[]                    @relation("AgentLeads")
   coordinatorLeads         Lead[]                    @relation("CoordinatorLeads")
@@ -160,8 +198,13 @@ model User {
   approvedWithdrawals      WithdrawalRequest[]       @relation("WithdrawalApprover")
   processedPayouts         PayoutEvent[]
   auditLogs                AuditLog[]
+  agencyMemberships        AgencyMember[]
+  createdAgencies          Agency[]                  @relation("AgencyCreator")
+  sentAgencyInvitations    AgencyInvitation[]        @relation("InvitationSender")
+  verifiedAgencies         Agency[]                  @relation("AgencyVerifier")
 
   @@index([role, accountStatus])
+  @@index([agentType])
   @@index([coordinatorId])
   @@map("users")
 }
@@ -201,13 +244,87 @@ model OtpChallenge {
 }
 
 // ----------------------------------------------------------------------------
-// 2. COMPLIANCE & BANKING
+// 2. AGENCY & ORGANIZATION MANAGEMENT
+// ----------------------------------------------------------------------------
+
+model Agency {
+  id              String        @id @default(uuid()) @db.Uuid
+  name            String        @db.VarChar(255)
+  legalName       String        @map("legal_name") @db.VarChar(255)
+  tradeLicenseNo  String        @unique @map("trade_license_no") @db.VarChar(100)
+  orn             String?       @db.VarChar(50)
+  dedLicenseNo    String?       @map("ded_license_no") @db.VarChar(50)
+  email           String        @db.VarChar(255)
+  phone           String        @db.VarChar(50)
+  address         String?       @db.Text
+  poBox           String?       @map("po_box") @db.VarChar(50)
+  status          AgencyStatus  @default(PENDING_VERIFICATION)
+  rejectionReason String?       @map("rejection_reason") @db.Text
+
+  createdById     String        @map("created_by_id") @db.Uuid
+  createdBy       User          @relation("AgencyCreator", fields: [createdById], references: [id])
+  verifiedById    String?       @map("verified_by_id") @db.Uuid
+  verifiedBy      User?         @relation("AgencyVerifier", fields: [verifiedById], references: [id])
+  verifiedAt      DateTime?     @map("verified_at") @db.Timestamptz
+
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  members         AgencyMember[]
+  invitations     AgencyInvitation[]
+  documents       KycDocument[]
+  bankAccounts    BankAccount[]
+
+  @@index([status])
+  @@map("agencies")
+}
+
+model AgencyMember {
+  id        String     @id @default(uuid()) @db.Uuid
+  agencyId  String     @map("agency_id") @db.Uuid
+  agency    Agency     @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  userId    String     @map("user_id") @db.Uuid
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      AgencyRole @default(AGENT)
+  status    String     @default("ACTIVE") @db.VarChar(50)
+  joinedAt  DateTime   @default(now()) @map("joined_at") @db.Timestamptz
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([agencyId, userId])
+  @@index([userId])
+  @@index([agencyId])
+  @@map("agency_members")
+}
+
+model AgencyInvitation {
+  id          String           @id @default(uuid()) @db.Uuid
+  agencyId    String           @map("agency_id") @db.Uuid
+  agency      Agency           @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  email       String           @db.VarChar(255)
+  role        AgencyRole       @default(AGENT)
+  inviteToken String           @unique @map("invite_token") @db.VarChar(128)
+  status      InvitationStatus @default(PENDING)
+  expiresAt   DateTime         @map("expires_at") @db.Timestamptz
+  invitedById String           @map("invited_by_id") @db.Uuid
+  invitedBy   User             @relation("InvitationSender", fields: [invitedById], references: [id])
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([agencyId, status])
+  @@index([email])
+  @@map("agency_invitations")
+}
+
+// ----------------------------------------------------------------------------
+// 3. COMPLIANCE & BANKING
 // ----------------------------------------------------------------------------
 
 model KycDocument {
   id               String          @id @default(uuid()) @db.Uuid
   userId           String          @map("user_id") @db.Uuid
   user             User            @relation("UserKycDocuments", fields: [userId], references: [id], onDelete: Cascade)
+  agencyId         String?         @map("agency_id") @db.Uuid
+  agency           Agency?         @relation(fields: [agencyId], references: [id], onDelete: Cascade)
   documentType     KycDocumentType @map("document_type")
   fileKey          String          @map("file_key") @db.VarChar(512)
   originalFilename String          @map("original_filename") @db.VarChar(255)
@@ -224,27 +341,35 @@ model KycDocument {
   updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz
 
   @@index([userId, status])
+  @@index([agencyId, status])
   @@map("kyc_documents")
 }
 
 model BankAccount {
-  id                String              @id @default(uuid()) @db.Uuid
-  userId            String              @map("user_id") @db.Uuid
-  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bankName          String              @map("bank_name") @db.VarChar(255)
-  accountHolderName String              @map("account_holder_name") @db.VarChar(255)
-  ibanLast4         String              @map("iban_last4") @db.VarChar(4)
-  encryptedIban     String              @map("encrypted_iban") @db.Text
-  encryptedSwift    String?             @map("encrypted_swift") @db.Text
-  currency          String              @default("AED") @db.VarChar(3)
-  isPrimary         Boolean             @default(true) @map("is_primary")
-  isVerified        Boolean             @default(false) @map("is_verified")
-  verifiedById      String?             @map("verified_by_id") @db.Uuid
-  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz
-  withdrawals       WithdrawalRequest[]
+  id                      String              @id @default(uuid()) @db.Uuid
+  userId                  String              @map("user_id") @db.Uuid
+  user                    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agencyId                String?             @map("agency_id") @db.Uuid
+  agency                  Agency?             @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  bankName                String              @map("bank_name") @db.VarChar(255)
+  accountHolderName       String              @map("account_holder_name") @db.VarChar(255)
+  ibanLast4               String              @map("iban_last4") @db.VarChar(4)
+  encryptedIban           String              @map("encrypted_iban") @db.Text
+  encryptedSwift          String?             @map("encrypted_swift") @db.Text
+  currency                String              @default("AED") @db.VarChar(3)
+  bankConfirmationDocKey  String?             @map("bank_confirmation_doc_key") @db.VarChar(512)
+  isPrimary               Boolean             @default(true) @map("is_primary")
+  isVerified              Boolean             @default(false) @map("is_verified")
+  rejectionReason         String?             @map("rejection_reason") @db.Text
+  verifiedById            String?             @map("verified_by_id") @db.Uuid
+  verifiedBy              User?               @relation("BankAccountVerifier", fields: [verifiedById], references: [id])
+  verifiedAt              DateTime?           @map("verified_at") @db.Timestamptz
+  createdAt               DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+  withdrawals             WithdrawalRequest[]
 
   @@index([userId, isPrimary])
+  @@index([agencyId])
   @@map("bank_accounts")
 }
 

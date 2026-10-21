@@ -28,3 +28,8 @@ export const validateQuery = (schema: ZodSchema) => {
     next();
   };
 };
+
+export const validate = (schema: ZodSchema, target: 'body' | 'query' | 'params' = 'body') => {
+  return target === 'query' ? validateQuery(schema) : validateBody(schema);
+};
+
