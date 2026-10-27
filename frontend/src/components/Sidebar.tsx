@@ -13,9 +13,11 @@ import {
   Coins,
   CreditCard,
   ShieldCheck,
+  ShieldAlert,
   Settings,
   ChevronDown,
   ArrowRight,
+  LogOut,
   X,
 } from 'lucide-react';
 import { UserSummary } from '../types';
@@ -84,6 +86,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       href: '/settings',
       icon: Settings,
     },
+    ...(user?.role === 'ADMIN'
+      ? [
+          {
+            label: 'Prospera Admin',
+            href: '/admin',
+            icon: ShieldAlert,
+          },
+        ]
+      : []),
   ];
 
   const handleLogout = () => {
@@ -215,22 +226,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* User Profile Card */}
           <div className="bg-[#070D1D] rounded-xl p-3 border border-slate-800/80 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="relative w-9 h-9 rounded-full overflow-hidden ring-1 ring-blue-500/30 flex-shrink-0">
-                <Image
-                  src={founderAvatar}
-                  alt={user?.fullName || 'Mugesh | Ram'}
-                  fill
-                  className="object-cover"
-                />
+              <div className="relative w-9 h-9 rounded-full overflow-hidden ring-1 ring-blue-500/30 flex-shrink-0 bg-slate-800 flex items-center justify-center">
+                {user?.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={user.avatarUrl}
+                    alt={user.fullName || 'User Avatar'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Image
+                    src={founderAvatar}
+                    alt={user?.fullName || 'Prospera Member'}
+                    fill
+                    className="object-cover"
+                  />
+                )}
                 <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#070D1D]" />
               </div>
 
               <div className="flex flex-col">
                 <span className="text-white text-xs font-bold leading-tight truncate max-w-[110px]">
-                  {user?.fullName || 'Mugesh | Ram'}
+                  {user?.fullName || 'Prospera Member'}
                 </span>
-                <span className="text-slate-400 text-[10.5px] font-medium leading-none mt-0.5">
-                  Super Agent
+                <span className="text-slate-400 text-[10.5px] font-medium leading-none mt-0.5 truncate max-w-[110px]">
+                  {user?.role === 'ADMIN'
+                    ? 'Administrator'
+                    : user?.agentType === 'AGENCY_MEMBER'
+                    ? 'Agency Member'
+                    : 'Independent Agent'}
                 </span>
               </div>
             </div>
@@ -240,7 +264,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="text-slate-400 hover:text-white p-1 rounded transition-colors"
               title="Log Out"
             >
-              <ChevronDown size={16} />
+              <LogOut size={16} />
             </button>
           </div>
         </div>

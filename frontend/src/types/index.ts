@@ -1,5 +1,17 @@
 export type Role = 'REFERRAL_PARTNER' | 'AGENT' | 'COORDINATOR' | 'ADMIN';
 
+export type AgentType = 'INDEPENDENT' | 'AGENCY_MEMBER';
+
+export type AgencyRole = 'AGENCY_OWNER' | 'AGENCY_ADMIN' | 'AGENT';
+
+export type AgencyStatus =
+  | 'PENDING_VERIFICATION'
+  | 'VERIFIED'
+  | 'REJECTED'
+  | 'SUSPENDED';
+
+export type InvitationStatus = 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'REVOKED';
+
 export type AccountStatus =
   | 'PENDING_VERIFICATION'
   | 'PENDING_APPROVAL'
@@ -36,7 +48,12 @@ export type WithdrawalStatus =
   | 'REJECTED'
   | 'CANCELLED';
 
-export type KycStatus = 'PENDING_REVIEW' | 'VERIFIED' | 'REJECTED' | 'EXPIRED';
+export type KycStatus =
+  | 'PENDING_REVIEW'
+  | 'VERIFIED'
+  | 'REJECTED'
+  | 'EXPIRED'
+  | 'CHANGES_REQUESTED';
 
 export type KycDocumentType =
   | 'EMIRATES_ID_FRONT'
@@ -44,19 +61,131 @@ export type KycDocumentType =
   | 'PASSPORT'
   | 'TRADE_LICENSE'
   | 'VAT_CERTIFICATE'
-  | 'BANK_STATEMENT';
+  | 'BANK_STATEMENT'
+  | 'BANK_CONFIRMATION_LETTER'
+  | 'BROKER_CARD_BRN'
+  | 'ESTABLISHMENT_CARD'
+  | 'POWER_OF_ATTORNEY'
+  | 'OTHER';
 
 export interface UserSummary {
   id: string;
   email: string;
   fullName: string;
   phone?: string | null;
+  whatsapp?: string | null;
+  avatarUrl?: string | null;
+  brn?: string | null;
+  nationality?: string | null;
   role: Role;
+  agentType?: AgentType;
   accountStatus: AccountStatus;
   companyName?: string | null;
   referralCode?: string | null;
   emailVerifiedAt?: string | null;
   kycVerifiedAt?: string | null;
+}
+
+export interface ProfileCompletionItem {
+  field: string;
+  completed: boolean;
+  weight: number;
+}
+
+export interface ProfileCompletionDetails {
+  percentage: number;
+  isComplete: boolean;
+  checklist: ProfileCompletionItem[];
+}
+
+export interface FullProfile {
+  id: string;
+  email: string;
+  fullName: string;
+  phone?: string | null;
+  whatsapp?: string | null;
+  avatarUrl?: string | null;
+  brn?: string | null;
+  nationality?: string | null;
+  role: Role;
+  agentType?: AgentType;
+  accountStatus: AccountStatus;
+  companyName?: string | null;
+  referralCode?: string | null;
+  emailVerifiedAt?: string | null;
+  kycVerifiedAt?: string | null;
+  deletionRequestedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  completion: ProfileCompletionDetails;
+  agency?: {
+    membershipId: string;
+    role: AgencyRole;
+    joinedAt: string;
+    agencyId: string;
+    agencyName: string;
+    legalName: string;
+    tradeLicenseNo: string;
+    status: AgencyStatus;
+  } | null;
+  kycDocuments: KycDocumentItem[];
+  bankAccounts: BankAccountItem[];
+}
+
+export interface AgencyMemberInfo {
+  id: string;
+  userId?: string;
+  fullName: string;
+  email?: string;
+  phone?: string;
+  avatarUrl?: string | null;
+  role: AgencyRole;
+  joinedAt?: string;
+}
+
+export interface AgencyInvitationInfo {
+  id: string;
+  email: string;
+  role: AgencyRole;
+  inviteToken: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface AgencyDetails {
+  id: string;
+  name: string;
+  legalName: string;
+  tradeLicenseNo: string;
+  orn?: string | null;
+  dedLicenseNo?: string | null;
+  email: string;
+  phone: string;
+  address?: string | null;
+  poBox?: string | null;
+  status: AgencyStatus;
+  rejectionReason?: string | null;
+  membersCount: number;
+  members: AgencyMemberInfo[];
+  pendingInvitations: AgencyInvitationInfo[];
+  documents: {
+    id: string;
+    documentType: KycDocumentType;
+    originalFilename: string;
+    status: KycStatus;
+    createdAt: string;
+  }[];
+}
+
+export interface MyAgencyResponse {
+  isAgencyMember: boolean;
+  membership: {
+    id: string;
+    role: AgencyRole;
+    joinedAt: string;
+    isPrivileged: boolean;
+  } | null;
+  agency: AgencyDetails | null;
 }
 
 export interface ServiceItem {
@@ -138,13 +267,19 @@ export interface CommissionEntry {
 
 export interface BankAccountItem {
   id: string;
-  userId: string;
+  userId?: string;
+  agencyId?: string | null;
   bankName: string;
   accountHolderName: string;
   ibanLast4: string;
+  maskedIban?: string;
   currency: string;
+  hasConfirmationDoc?: boolean;
+  bankConfirmationDocKey?: string | null;
   isPrimary: boolean;
   isVerified: boolean;
+  rejectionReason?: string | null;
+  verifiedAt?: string | null;
   createdAt: string;
 }
 
@@ -168,7 +303,8 @@ export interface WithdrawalItem {
 
 export interface KycDocumentItem {
   id: string;
-  userId: string;
+  userId?: string;
+  agencyId?: string | null;
   documentType: KycDocumentType;
   originalFilename: string;
   fileSizeBytes: number;
@@ -178,6 +314,7 @@ export interface KycDocumentItem {
   reviewedAt?: string | null;
   expiryDate?: string | null;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface DashboardMetrics {
@@ -189,4 +326,117 @@ export interface DashboardMetrics {
   withdrawableBalance: number;
   pendingClearanceCommission: number;
   payoutsProcessed: number;
+}
+
+export interface AdminOverviewMetrics {
+  totalIndependentAgents: number;
+  totalAgencies: number;
+  totalAgencyMembers: number;
+  pendingAgentApprovals: number;
+  pendingAgencyApprovals: number;
+  pendingKycReviews: number;
+  verifiedAccounts: number;
+  suspendedAccounts: number;
+}
+
+export interface AdminRecentApplication {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  role: Role;
+  agentType?: AgentType;
+  accountStatus: AccountStatus;
+  companyName?: string | null;
+  createdAt: string;
+  kycStatusSummary: 'PENDING_REVIEW' | 'VERIFIED' | 'INCOMPLETE';
+}
+
+export interface AdminAgentItem {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  whatsapp?: string | null;
+  avatarUrl?: string | null;
+  brn?: string | null;
+  role: Role;
+  agentType?: AgentType;
+  accountStatus: AccountStatus;
+  companyName?: string | null;
+  createdAt: string;
+  approvedAt?: string | null;
+  agencyMemberships?: {
+    agency: {
+      id: string;
+      name: string;
+      tradeLicenseNo: string;
+    };
+  }[];
+  kycDocuments?: {
+    id: string;
+    documentType: KycDocumentType;
+    status: KycStatus;
+  }[];
+}
+
+export interface AdminAgencyItem {
+  id: string;
+  name: string;
+  legalName: string;
+  tradeLicenseNo: string;
+  orn?: string | null;
+  dedLicenseNo?: string | null;
+  email: string;
+  phone: string;
+  status: AgencyStatus;
+  rejectionReason?: string | null;
+  createdAt: string;
+  verifiedAt?: string | null;
+  creator?: {
+    id: string;
+    fullName: string;
+    email: string;
+    phone?: string | null;
+  };
+  totalMembers: number;
+  members: {
+    id: string;
+    userId: string;
+    fullName: string;
+    email: string;
+    role: AgencyRole;
+  }[];
+  documentsCount: number;
+}
+
+export interface AdminPendingKycItem {
+  id: string;
+  documentType: KycDocumentType;
+  originalFilename: string;
+  fileSizeBytes: number;
+  mimeType: string;
+  sha256Checksum?: string;
+  status: KycStatus;
+  createdAt: string;
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+    phone?: string | null;
+    role: Role;
+    agentType?: AgentType;
+  };
+  agency?: {
+    id: string;
+    name: string;
+    tradeLicenseNo: string;
+  } | null;
+}
+
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }

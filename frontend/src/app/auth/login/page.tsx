@@ -3,40 +3,38 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Lock, Mail, ArrowRight, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, ArrowRight, AlertCircle, ShieldAlert } from 'lucide-react';
 import { ApiClient } from '../../../lib/api';
 import prosperaLogo from '../../../assets/prospera-logo.png';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('ahmed.mansoori@apexadvisory.ae');
-  const [password, setPassword] = useState('Password123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim() || !password) {
+      setErrorMsg('Please enter both your corporate email and password.');
+      return;
+    }
+
     setIsLoading(true);
     setErrorMsg(null);
 
     try {
-      await ApiClient.login(email, password);
+      await ApiClient.login(email.trim(), password);
+      // On success, redirect to dashboard or intended target
       window.location.href = '/';
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Invalid credentials. Please verify your email and password.';
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Invalid credentials. Please verify your email and password.';
       setErrorMsg(message);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleDemoLogin = async () => {
-    setIsLoading(true);
-    setErrorMsg(null);
-    try {
-      await ApiClient.login('ahmed.mansoori@apexadvisory.ae', 'DemoPass123!');
-      window.location.href = '/';
-    } catch {
-      window.location.href = '/';
     }
   };
 
@@ -91,7 +89,15 @@ export default function LoginPage() {
           <h1 style={{ fontSize: '1.35rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
             Corporate Partner Portal
           </h1>
-          <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          <p
+            style={{
+              fontSize: '0.8rem',
+              color: '#94a3b8',
+              marginTop: '4px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+            }}
+          >
             UAE & Middle East Referral Management
           </p>
         </div>
@@ -108,41 +114,51 @@ export default function LoginPage() {
                 color: '#dc2626',
                 fontSize: '0.84rem',
                 display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
+                alignItems: 'flex-start',
+                gap: '10px',
                 marginBottom: '20px',
               }}
             >
-              <AlertCircle size={16} />
+              <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
             <div className="form-group">
-              <label className="form-label">Corporate Email Address</label>
+              <label className="form-label" htmlFor="email-input">
+                Corporate Email Address <span style={{ color: '#ef4444' }}>*</span>
+              </label>
               <div style={{ position: 'relative' }}>
                 <input
+                  id="email-input"
                   type="email"
                   className="form-input"
                   placeholder="name@company.ae"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  autoComplete="email"
+                  disabled={isLoading}
                 />
               </div>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Account Password</label>
+              <label className="form-label" htmlFor="password-input">
+                Account Password <span style={{ color: '#ef4444' }}>*</span>
+              </label>
               <div style={{ position: 'relative' }}>
                 <input
+                  id="password-input"
                   type="password"
                   className="form-input"
                   placeholder="••••••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  autoComplete="current-password"
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -150,38 +166,39 @@ export default function LoginPage() {
             <button
               type="submit"
               className="btn-primary"
-              style={{ width: '100%', padding: '12px' }}
-              disabled={isLoading}
-            >
-              <span>{isLoading ? 'Verifying...' : 'Sign In to Portal'}</span>
-              <ArrowRight size={16} />
-            </button>
-          </form>
-
-          {/* Quick Demo Access Button */}
-          <div style={{ marginTop: '20px', textAlign: 'center' }}>
-            <button
-              type="button"
-              onClick={handleDemoLogin}
               style={{
                 width: '100%',
-                padding: '10px',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'var(--blue-subtle)',
-                border: '1px solid var(--blue-border)',
-                color: 'var(--blue-primary)',
-                fontWeight: 600,
-                fontSize: '0.84rem',
-                cursor: 'pointer',
+                padding: '12px',
+                marginTop: '6px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '8px',
               }}
+              disabled={isLoading}
             >
-              <ShieldCheck size={16} />
-              <span>1-Click Access as Demo Partner (Apex Advisory)</span>
+              <span>{isLoading ? 'Verifying Credentials...' : 'Sign In to Portal'}</span>
+              {!isLoading && <ArrowRight size={16} />}
             </button>
+          </form>
+
+          {/* Secure Institutional Footer Note */}
+          <div
+            style={{
+              marginTop: '24px',
+              paddingTop: '16px',
+              borderTop: '1px solid #f1f5f9',
+              textAlign: 'center',
+              fontSize: '0.75rem',
+              color: '#94a3b8',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+            }}
+          >
+            <Lock size={12} />
+            <span>Encrypted Session • UAE Compliance Tier-1 Standard</span>
           </div>
         </div>
       </div>

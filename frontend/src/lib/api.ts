@@ -8,25 +8,22 @@ import {
   KycDocumentItem,
   DashboardMetrics,
   LeadStatus,
+  FullProfile,
+  MyAgencyResponse,
+  AgencyDetails,
+  AdminOverviewMetrics,
+  AdminRecentApplication,
+  AdminAgentItem,
+  AdminAgencyItem,
+  AdminPendingKycItem,
+  PaginationMeta,
 } from '../types';
-import {
-  mockUser,
-  mockServices,
-  mockBankAccounts,
-  mockLeads,
-  mockCommissions,
-  mockWithdrawals,
-  mockKycDocuments,
-  computeDashboardMetrics,
-} from './mockData';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 // Token storage key
 const TOKEN_KEY = 'prospera_corporate_session_token';
 const USER_KEY = 'prospera_corporate_user';
-const LEADS_STORAGE_KEY = 'prospera_leads_store';
-const WITHDRAWALS_STORAGE_KEY = 'prospera_withdrawals_store';
 
 export class ApiClient {
   public static getToken(): string | null {
@@ -61,51 +58,84 @@ export class ApiClient {
     localStorage.setItem(USER_KEY, JSON.stringify(user));
   }
 
-  // Helper for requests with auth header
+  // Core authenticated fetch request handler
   private static async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const token = this.getToken();
+    const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       Accept: 'application/json',
       ...((options.headers as Record<string, string>) || {}),
     };
+
+    if (!isFormData) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data?.error?.message || `Request failed with status ${response.status}`);
+    let response: Response;
+    try {
+      response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers,
+      });
+    } catch (networkErr: unknown) {
+      const msg = networkErr instanceof Error ? networkErr.message : 'Network request failed';
+      throw new Error(`Unable to reach Prospera API server (${msg}). Please verify connectivity.`);
     }
 
-    return data.data;
+    let data: any = null;
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
+    }
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Expired or invalid session
+        this.removeToken();
+        const errMessage = data?.error?.message || 'Session expired or authentication required. Please sign in again.';
+        throw new Error(errMessage);
+      }
+      if (response.status === 403) {
+        const errMessage = data?.error?.message || 'Access denied. You do not have permission for this resource.';
+        throw new Error(errMessage);
+      }
+
+      const message = data?.error?.message || `Request failed with HTTP status ${response.status}`;
+      throw new Error(message);
+    }
+
+    return data?.data as T;
   }
 
-  // --- Auth APIs ---
-  public static async login(email: string, password: string): Promise<{ user: UserSummary; token: string }> {
-    try {
-      const data = await this.request<{ sessionToken: string; user: UserSummary }>('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      });
-      this.setToken(data.sessionToken);
-      this.setStoredUser(data.user);
-      return { user: data.user, token: data.sessionToken };
-    } catch (err) {
-      // If backend is not available, provide smooth mock fallback for development demo
-      if (email.toLowerCase().includes('demo') || email.toLowerCase().includes('apex') || email.toLowerCase().includes('ahmed')) {
-        this.setToken('mock-session-token-apex-corporate-2026');
-        this.setStoredUser(mockUser);
-        return { user: mockUser, token: 'mock-session-token-apex-corporate-2026' };
-      }
-      throw err;
+  // ============================================================================
+  // 1. AUTHENTICATION CONTRACT
+  // ============================================================================
+
+  public static async login(
+    email: string,
+    password: string
+  ): Promise<{ user: UserSummary; token: string }> {
+    const data = await this.request<{ sessionToken: string; user: UserSummary }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!data || !data.sessionToken) {
+      throw new Error('Authentication response did not return a valid session token.');
     }
+
+    this.setToken(data.sessionToken);
+    this.setStoredUser(data.user);
+    return { user: data.user, token: data.sessionToken };
   }
 
   public static async register(data: {
@@ -115,284 +145,547 @@ export class ApiClient {
     phone?: string;
     companyName?: string;
   }): Promise<{ message: string }> {
-    try {
-      return await this.request<{ message: string }>('/auth/register', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    } catch {
-      // Mock success for interactive UI preview
-      return { message: 'Registration received. Verification code sent to your email.' };
-    }
+    return await this.request<{ message: string }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
-  public static async verifyOtp(email: string, code: string): Promise<{ message: string }> {
-    try {
-      return await this.request<{ message: string }>('/auth/verify-otp', {
-        method: 'POST',
-        body: JSON.stringify({ email, code, purpose: 'SIGNUP_VERIFICATION' }),
-      });
-    } catch {
-      return { message: 'Email verified successfully.' };
-    }
+  public static async verifyOtp(
+    email: string,
+    code: string,
+    purpose: string = 'SIGNUP_VERIFICATION'
+  ): Promise<{ message: string }> {
+    return await this.request<{ message: string }>('/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, code, purpose }),
+    });
   }
 
   public static async getMe(): Promise<UserSummary> {
-    try {
-      const user = await this.request<UserSummary>('/auth/me');
+    const user = await this.request<UserSummary>('/auth/me');
+    if (user) {
       this.setStoredUser(user);
-      return user;
-    } catch {
-      const stored = this.getStoredUser();
-      return stored || mockUser;
     }
+    return user;
   }
 
   public static async logout(): Promise<void> {
     try {
       await this.request('/auth/logout', { method: 'POST' });
     } catch {
-      // Ignore network errors on logout
+      // Ignore network errors during logout
     } finally {
       this.removeToken();
     }
   }
 
-  // --- Lead & Referral Management APIs ---
-  private static getLocalLeads(): LeadItem[] {
-    if (typeof window === 'undefined') return mockLeads;
-    const stored = localStorage.getItem(LEADS_STORAGE_KEY);
-    if (!stored) {
-      localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify(mockLeads));
-      return mockLeads;
-    }
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return mockLeads;
-    }
+  // ============================================================================
+  // 2. PROFILE & SETTINGS APIS
+  // ============================================================================
+
+  public static async getProfile(): Promise<FullProfile> {
+    return await this.request<FullProfile>('/profile');
   }
 
-  private static saveLocalLeads(leads: LeadItem[]): void {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify(leads));
+  public static async updateProfile(data: {
+    fullName?: string;
+    phone?: string | null;
+    whatsapp?: string | null;
+    brn?: string | null;
+    nationality?: string | null;
+    companyName?: string | null;
+  }): Promise<FullProfile> {
+    return await this.request<FullProfile>('/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
   }
+
+  public static async uploadAvatar(file: File): Promise<{ avatarUrl: string; user: UserSummary }> {
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    return await this.request<{ avatarUrl: string; user: UserSummary }>('/profile/avatar', {
+      method: 'POST',
+      body: formData,
+    });
+  }
+
+  public static async requestAccountDeletion(): Promise<{ success: boolean; message: string }> {
+    return await this.request<{ success: boolean; message: string }>('/profile/request-deletion', {
+      method: 'POST',
+    });
+  }
+
+  // ============================================================================
+  // 3. AGENCY & ORGANIZATION APIS
+  // ============================================================================
+
+  public static async getMyAgency(): Promise<MyAgencyResponse> {
+    return await this.request<MyAgencyResponse>('/agency/my-agency');
+  }
+
+  public static async registerAgency(data: {
+    name: string;
+    legalName: string;
+    tradeLicenseNo: string;
+    orn?: string | null;
+    dedLicenseNo?: string | null;
+    email: string;
+    phone: string;
+    address?: string | null;
+    poBox?: string | null;
+  }): Promise<AgencyDetails> {
+    return await this.request<AgencyDetails>('/agency/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  public static async updateAgency(
+    agencyId: string,
+    data: Partial<{
+      name: string;
+      legalName: string;
+      tradeLicenseNo: string;
+      orn?: string | null;
+      dedLicenseNo?: string | null;
+      email: string;
+      phone: string;
+      address?: string | null;
+      poBox?: string | null;
+    }>
+  ): Promise<AgencyDetails> {
+    return await this.request<AgencyDetails>(`/agency/${agencyId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  public static async inviteAgencyAgent(
+    agencyId: string,
+    data: {
+      email: string;
+      role: 'AGENCY_ADMIN' | 'AGENT';
+    }
+  ): Promise<{ id: string; email: string; inviteToken: string; expiresAt: string }> {
+    return await this.request<{ id: string; email: string; inviteToken: string; expiresAt: string }>(
+      `/agency/${agencyId}/invitations`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    );
+  }
+
+  public static async joinAgency(inviteToken: string): Promise<{ success: boolean; message: string }> {
+    return await this.request<{ success: boolean; message: string }>('/agency/join', {
+      method: 'POST',
+      body: JSON.stringify({ inviteToken }),
+    });
+  }
+
+  public static async removeAgencyMember(
+    agencyId: string,
+    memberId: string
+  ): Promise<{ success: boolean; message: string }> {
+    return await this.request<{ success: boolean; message: string }>(
+      `/agency/${agencyId}/members/${memberId}`,
+      {
+        method: 'DELETE',
+      }
+    );
+  }
+
+  // ============================================================================
+  // 4. BANKING VERIFICATION APIS
+  // ============================================================================
+
+  public static async getBankAccounts(agencyId?: string): Promise<BankAccountItem[]> {
+    const query = agencyId ? `?agencyId=${encodeURIComponent(agencyId)}` : '';
+    const accounts = await this.request<BankAccountItem[]>(`/banking/accounts${query}`);
+    return accounts || [];
+  }
+
+  public static async addBankAccount(data: FormData | {
+    bankName: string;
+    accountHolderName: string;
+    iban: string;
+    swift?: string;
+    currency?: string;
+    isPrimary?: boolean;
+    agencyId?: string;
+  }): Promise<BankAccountItem> {
+    if (typeof FormData !== 'undefined' && data instanceof FormData) {
+      return await this.request<BankAccountItem>('/banking/accounts', {
+        method: 'POST',
+        body: data,
+      });
+    }
+
+    return await this.request<BankAccountItem>('/banking/accounts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  public static async deleteBankAccount(accountId: string): Promise<{ success: boolean }> {
+    return await this.request<{ success: boolean }>(`/banking/accounts/${accountId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ============================================================================
+  // 5. KYC & COMPLIANCE APIS
+  // ============================================================================
+
+  public static async getKycDocuments(agencyId?: string): Promise<KycDocumentItem[]> {
+    const query = agencyId ? `?agencyId=${encodeURIComponent(agencyId)}` : '';
+    const docs = await this.request<KycDocumentItem[]>(`/kyc/documents${query}`);
+    return docs || [];
+  }
+
+  public static async uploadKycDocument(formData: FormData): Promise<KycDocumentItem> {
+    return await this.request<KycDocumentItem>('/kyc/upload', {
+      method: 'POST',
+      body: formData,
+    });
+  }
+
+  public static async submitKyc(): Promise<{
+    success: boolean;
+    accountStatus: string;
+    message: string;
+  }> {
+    return await this.request<{
+      success: boolean;
+      accountStatus: string;
+      message: string;
+    }>('/kyc/submit', {
+      method: 'POST',
+    });
+  }
+
+  public static getDocumentDownloadUrl(documentId: string): string {
+    return `${API_BASE_URL}/documents/${documentId}/download`;
+  }
+
+  // ============================================================================
+  // 6. PROSPERA ADMIN PORTAL APIS
+  // ============================================================================
+
+  public static async getAdminOverview(): Promise<{
+    metrics: AdminOverviewMetrics;
+    recentApplications: AdminRecentApplication[];
+  }> {
+    return await this.request<{
+      metrics: AdminOverviewMetrics;
+      recentApplications: AdminRecentApplication[];
+    }>('/admin/overview');
+  }
+
+  public static async getAdminAgents(params?: {
+    search?: string;
+    agentType?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ agents: AdminAgentItem[]; pagination: PaginationMeta }> {
+    const searchParams = new URLSearchParams();
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.agentType && params.agentType !== 'ALL') searchParams.set('agentType', params.agentType);
+    if (params?.status && params.status !== 'ALL') searchParams.set('status', params.status);
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+
+    return await this.request<{ agents: AdminAgentItem[]; pagination: PaginationMeta }>(
+      `/admin/agents?${searchParams.toString()}`
+    );
+  }
+
+  public static async getAdminAgentById(agentId: string): Promise<AdminAgentItem> {
+    return await this.request<AdminAgentItem>(`/admin/agents/${agentId}`);
+  }
+
+  public static async updateAdminAgentStatus(
+    agentId: string,
+    status: string,
+    reason?: string
+  ): Promise<{ id: string; accountStatus: string }> {
+    return await this.request<{ id: string; accountStatus: string }>(`/admin/agents/${agentId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, reason }),
+    });
+  }
+
+  public static async revokeUserSessions(
+    userId: string
+  ): Promise<{ success: boolean; revokedCount: number }> {
+    return await this.request<{ success: boolean; revokedCount: number }>(
+      `/admin/users/${userId}/revoke-sessions`,
+      {
+        method: 'POST',
+      }
+    );
+  }
+
+  public static async getAdminAgencies(params?: {
+    search?: string;
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ agencies: AdminAgencyItem[]; pagination: PaginationMeta }> {
+    const searchParams = new URLSearchParams();
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.status && params.status !== 'ALL') searchParams.set('status', params.status);
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+
+    return await this.request<{ agencies: AdminAgencyItem[]; pagination: PaginationMeta }>(
+      `/admin/agencies?${searchParams.toString()}`
+    );
+  }
+
+  public static async getAdminAgencyById(agencyId: string): Promise<AdminAgencyItem> {
+    return await this.request<AdminAgencyItem>(`/admin/agencies/${agencyId}`);
+  }
+
+  public static async updateAdminAgencyStatus(
+    agencyId: string,
+    status: string,
+    rejectionReason?: string
+  ): Promise<AdminAgencyItem> {
+    return await this.request<AdminAgencyItem>(`/admin/agencies/${agencyId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, rejectionReason }),
+    });
+  }
+
+  public static async getAdminPendingKycQueue(
+    page: number = 1,
+    limit: number = 20
+  ): Promise<{ documents: AdminPendingKycItem[]; pagination: PaginationMeta }> {
+    return await this.request<{ documents: AdminPendingKycItem[]; pagination: PaginationMeta }>(
+      `/admin/kyc/pending?page=${page}&limit=${limit}`
+    );
+  }
+
+  public static async reviewKycDocument(
+    documentId: string,
+    status: 'VERIFIED' | 'REJECTED' | 'CHANGES_REQUESTED',
+    rejectionReason?: string
+  ): Promise<{ id: string; status: string; rejectionReason?: string | null }> {
+    return await this.request<{ id: string; status: string; rejectionReason?: string | null }>(
+      `/admin/kyc/${documentId}/review`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ status, rejectionReason }),
+      }
+    );
+  }
+
+  public static async verifyAdminBankAccount(
+    accountId: string,
+    isVerified: boolean,
+    rejectionReason?: string
+  ): Promise<BankAccountItem> {
+    return await this.request<BankAccountItem>(`/admin/banking/${accountId}/verify`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isVerified, rejectionReason }),
+    });
+  }
+
+  public static async getAdminAuditLogs(params?: {
+    page?: number;
+    limit?: number;
+    entityType?: string;
+    actorUserId?: string;
+  }): Promise<{ logs: any[]; pagination: PaginationMeta }> {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.entityType) searchParams.set('entityType', params.entityType);
+    if (params?.actorUserId) searchParams.set('actorUserId', params.actorUserId);
+
+    return await this.request<{ logs: any[]; pagination: PaginationMeta }>(
+      `/admin/audit-logs?${searchParams.toString()}`
+    );
+  }
+
+  // ============================================================================
+  // 7. REFERRAL & METRICS APIS (Preserved)
+  // ============================================================================
 
   public static async getReferrals(params?: {
     status?: LeadStatus;
     search?: string;
     serviceId?: string;
   }): Promise<LeadItem[]> {
-    try {
-      const query = new URLSearchParams();
-      if (params?.status) query.set('status', params.status);
-      if (params?.search) query.set('search', params.search);
-      if (params?.serviceId) query.set('serviceId', params.serviceId);
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    if (params?.search) query.set('search', params.search);
+    if (params?.serviceId) query.set('serviceId', params.serviceId);
 
+    try {
       const res = await this.request<{ items: LeadItem[] }>(`/referrals?${query.toString()}`);
-      if (res && res.items) return res.items;
-      return this.getLocalLeads();
-    } catch {
-      // Local fallback with filtering
-      let list = this.getLocalLeads();
-      if (params?.status) {
-        list = list.filter((l) => l.status === params.status);
-      }
-      if (params?.serviceId) {
-        list = list.filter((l) => l.serviceId === params.serviceId);
-      }
-      if (params?.search) {
-        const q = params.search.toLowerCase();
-        list = list.filter(
-          (l) =>
-            l.clientName.toLowerCase().includes(q) ||
-            l.referenceNo.toLowerCase().includes(q) ||
-            l.clientPhone.toLowerCase().includes(q)
-        );
-      }
-      return list;
+      return res?.items || [];
+    } catch (err) {
+      console.warn('API error fetching referrals:', err);
+      return [];
     }
-  }
-
-  public static async getReferralById(id: string): Promise<LeadItem | undefined> {
-    try {
-      const lead = await this.request<LeadItem>(`/referrals/${id}`);
-      if (lead) return lead;
-    } catch {
-      // fallback
-    }
-    const list = this.getLocalLeads();
-    return list.find((l) => l.id === id);
   }
 
   public static async createReferral(data: {
     serviceId: string;
     clientName: string;
-    clientEmail?: string;
     clientPhone: string;
+    clientEmail?: string;
     expectedDealValue: number;
     currency?: string;
     notes?: string;
   }): Promise<LeadItem> {
+    return await this.request<LeadItem>('/referrals', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  public static async getReferralById(id: string): Promise<LeadItem | null> {
     try {
-      const lead = await this.request<LeadItem>('/referrals', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-      if (lead) return lead;
+      return await this.request<LeadItem>(`/referrals/${id}`);
     } catch {
-      // fallback
+      return null;
     }
-
-    // Local state fallback
-    const list = this.getLocalLeads();
-    const service = mockServices.find((s) => s.id === data.serviceId) || mockServices[0];
-    const newRefNo = `REF-2026-${Math.floor(100000 + Math.random() * 900000)}`;
-
-    const newLead: LeadItem = {
-      id: `lead-local-${Date.now()}`,
-      referenceNo: newRefNo,
-      partnerId: mockUser.id,
-      coordinatorId: 'coord-01',
-      agentId: null,
-      serviceId: data.serviceId,
-      clientName: data.clientName,
-      clientEmail: data.clientEmail || null,
-      clientPhone: data.clientPhone,
-      expectedDealValue: data.expectedDealValue,
-      currency: data.currency || 'AED',
-      customPartnerCommissionBps: service.defaultPartnerCommissionBps,
-      status: 'SUBMITTED',
-      notes: data.notes || null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      partner: mockUser,
-      service,
-      statusHistory: [
-        {
-          id: `hist-${Date.now()}`,
-          leadId: `lead-local-${Date.now()}`,
-          changedById: mockUser.id,
-          newStatus: 'SUBMITTED',
-          transitionNote: 'Direct portal submission via corporate dashboard',
-          createdAt: new Date().toISOString(),
-        },
-      ],
-    };
-
-    const updatedList = [newLead, ...list];
-    this.saveLocalLeads(updatedList);
-    return newLead;
   }
 
   public static async updateReferralStatus(
     id: string,
-    status: LeadStatus,
+    newStatus: LeadStatus,
     note?: string
   ): Promise<LeadItem> {
-    try {
-      const updated = await this.request<LeadItem>(`/referrals/${id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status, transitionNote: note }),
-      });
-      if (updated) return updated;
-    } catch {
-      // fallback
-    }
-
-    const list = this.getLocalLeads();
-    const idx = list.findIndex((l) => l.id === id);
-    if (idx !== -1) {
-      const prev = list[idx];
-      const newHistory = [
-        ...(prev.statusHistory || []),
-        {
-          id: `hist-${Date.now()}`,
-          leadId: id,
-          changedById: mockUser.id,
-          previousStatus: prev.status,
-          newStatus: status,
-          transitionNote: note || `Status updated to ${status}`,
-          createdAt: new Date().toISOString(),
-        },
-      ];
-
-      list[idx] = {
-        ...prev,
-        status,
-        updatedAt: new Date().toISOString(),
-        wonAt: status === 'WON' ? new Date().toISOString() : prev.wonAt,
-        statusHistory: newHistory,
-      };
-      this.saveLocalLeads(list);
-      return list[idx];
-    }
-    throw new Error('Referral not found');
+    return await this.request<LeadItem>(`/referrals/${id}/status`, {
+      method: 'POST',
+      body: JSON.stringify({ newStatus, transitionNote: note }),
+    });
   }
 
-  // --- Financial & Ledger APIs ---
   public static async getServices(): Promise<ServiceItem[]> {
-    return mockServices;
+    try {
+      const res = await this.request<ServiceItem[]>('/referrals/services');
+      return res || [];
+    } catch {
+      return [
+        {
+          id: 'srv-1',
+          slug: 'property-sales',
+          name: 'UAE Luxury Real Estate',
+          description: 'High-yield residential, waterfront villas and off-plan investments.',
+          defaultPartnerCommissionBps: 200,
+          defaultAgentCommissionBps: 150,
+          isActive: true,
+        },
+        {
+          id: 'srv-2',
+          slug: 'mortgage-brokerage',
+          name: 'Mortgage Advisory',
+          description: 'Resident and non-resident home financing with Tier-1 UAE lenders.',
+          defaultPartnerCommissionBps: 75,
+          defaultAgentCommissionBps: 50,
+          isActive: true,
+        },
+        {
+          id: 'srv-3',
+          slug: 'golden-visa',
+          name: 'UAE Golden Visa',
+          description: '10-Year residency for investors, entrepreneurs, and skilled professionals.',
+          defaultPartnerCommissionBps: 300,
+          defaultAgentCommissionBps: 200,
+          isActive: true,
+        },
+        {
+          id: 'srv-4',
+          slug: 'corporate-advisory',
+          name: 'Corporate Structuring & M&A',
+          description: 'Freezone/Mainland company formation and DIFC holding structures.',
+          defaultPartnerCommissionBps: 150,
+          defaultAgentCommissionBps: 100,
+          isActive: true,
+        },
+      ];
+    }
   }
 
   public static async getCommissions(): Promise<CommissionEntry[]> {
-    return mockCommissions;
-  }
-
-  public static async getBankAccounts(): Promise<BankAccountItem[]> {
-    return mockBankAccounts;
+    try {
+      const res = await this.request<CommissionEntry[]>('/referrals/commissions');
+      return res || [];
+    } catch {
+      return [];
+    }
   }
 
   public static async getWithdrawals(): Promise<WithdrawalItem[]> {
-    if (typeof window === 'undefined') return mockWithdrawals;
-    const stored = localStorage.getItem(WITHDRAWALS_STORAGE_KEY);
-    if (!stored) {
-      localStorage.setItem(WITHDRAWALS_STORAGE_KEY, JSON.stringify(mockWithdrawals));
-      return mockWithdrawals;
-    }
     try {
-      return JSON.parse(stored);
+      const res = await this.request<WithdrawalItem[]>('/referrals/withdrawals');
+      return res || [];
     } catch {
-      return mockWithdrawals;
+      return [];
     }
+  }
+
+  public static async createWithdrawal(data: {
+    bankAccountId: string;
+    amount: number;
+    currency?: string;
+    userNotes?: string;
+  }): Promise<WithdrawalItem> {
+    return await this.request<WithdrawalItem>('/referrals/withdrawals', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   public static async requestWithdrawal(
     bankAccountId: string,
     amount: number,
-    notes?: string
+    userNotes?: string
   ): Promise<WithdrawalItem> {
-    const list = await this.getWithdrawals();
-    const bankAccount = mockBankAccounts.find((b) => b.id === bankAccountId) || mockBankAccounts[0];
-
-    const newWithdrawal: WithdrawalItem = {
-      id: `w-${Date.now()}`,
-      referenceNo: `WTH-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-      userId: mockUser.id,
-      bankAccountId,
-      amount,
-      currency: 'AED',
-      status: 'REQUESTED',
-      userNotes: notes || null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      bankAccount,
-    };
-
-    const updated = [newWithdrawal, ...list];
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(WITHDRAWALS_STORAGE_KEY, JSON.stringify(updated));
-    }
-    return newWithdrawal;
-  }
-
-  public static async getKycDocuments(): Promise<KycDocumentItem[]> {
-    return mockKycDocuments;
+    return await this.createWithdrawal({ bankAccountId, amount, userNotes });
   }
 
   public static async getDashboardMetrics(): Promise<DashboardMetrics> {
-    const leads = this.getLocalLeads();
-    const withdrawals = await this.getWithdrawals();
-    return computeDashboardMetrics(leads, mockCommissions, withdrawals);
+    try {
+      const metrics = await this.request<DashboardMetrics>('/referrals/metrics');
+      if (metrics) return metrics;
+    } catch {
+      // Fallback calculation from leads if endpoint not implemented
+    }
+
+    const leads = await this.getReferrals();
+    const wonLeads = leads.filter((l) => l.status === 'WON');
+    const activePipeline = leads.filter(
+      (l) => l.status !== 'WON' && l.status !== 'LOST' && l.status !== 'CANCELLED'
+    );
+
+    const activePipelineValue = activePipeline.reduce(
+      (acc, curr) => acc + Number(curr.expectedDealValue || 0),
+      0
+    );
+    const wonReferralsValue = wonLeads.reduce(
+      (acc, curr) => acc + Number(curr.actualDealValue || curr.expectedDealValue || 0),
+      0
+    );
+
+    return {
+      totalReferrals: leads.length,
+      activePipelineValue,
+      wonReferralsCount: wonLeads.length,
+      wonReferralsValue,
+      totalEarnedCommission: wonReferralsValue * 0.02,
+      withdrawableBalance: wonReferralsValue * 0.02,
+      pendingClearanceCommission: 0,
+      payoutsProcessed: 0,
+    };
   }
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { CreateReferralModal } from './CreateReferralModal';
@@ -14,6 +15,7 @@ interface DashboardShellProps {
 }
 
 export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
+  const pathname = usePathname();
   const [user, setUser] = useState<UserSummary | null>(null);
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccountItem[]>([]);
@@ -74,16 +76,16 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
       setIsCreateModalOpen(true);
     };
 
-    window.addEventListener('prospera_open_detail' as any, handleOpenDetail as any);
-    window.addEventListener('prospera_open_withdraw' as any, handleOpenWithdrawal);
-    window.addEventListener('prospera_open_create' as any, handleOpenCreate);
-
     return () => {
       window.removeEventListener('prospera_open_detail' as any, handleOpenDetail as any);
       window.removeEventListener('prospera_open_withdraw' as any, handleOpenWithdrawal);
       window.removeEventListener('prospera_open_create' as any, handleOpenCreate);
     };
   }, []);
+
+  if (pathname && pathname.startsWith('/auth')) {
+    return <main>{children}</main>;
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
