@@ -1120,7 +1120,7 @@ export class AdminService {
 
     return {
       user,
-      generatedPassword: input.password ? undefined : plainPassword,
+      message: 'User created successfully.',
     };
   }
 
@@ -1197,8 +1197,7 @@ export class AdminService {
     });
 
     return {
-      message: 'Invitation generated successfully',
-      inviteToken,
+      message: 'Invitation dispatched to user email successfully.',
       user,
     };
   }
@@ -1396,9 +1395,8 @@ export class AdminService {
 
     return {
       success: true,
-      message: 'Password reset initiated successfully',
+      message: 'Password reset notification dispatched to user email.',
       email: user.email,
-      resetCode,
     };
   }
 

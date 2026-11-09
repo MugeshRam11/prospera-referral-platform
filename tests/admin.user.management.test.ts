@@ -152,6 +152,58 @@ describe('Admin User Management & Platform Roles Test Suite', () => {
         expect(result.data.role).toBe('AGENT');
       }
     });
+
+    it('should strictly reject invalid platform role in user creation', () => {
+      const input = {
+        fullName: 'Hacker User',
+        email: 'hacker@example.com',
+        role: 'SUPER_ROOT_ADMIN',
+      };
+      const result = createUserSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it('should reject user creation with empty name', () => {
+      const input = {
+        fullName: '',
+        email: 'valid@example.com',
+        role: Role.AGENT,
+      };
+      const result = createUserSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it('should validate agency membership role distinct from platform role', () => {
+      const input = {
+        fullName: 'Agency Broker',
+        email: 'broker@demo.prospera.test',
+        role: Role.AGENT,
+        agentType: 'AGENCY_MEMBER',
+        agencyId: 'a0000000-0000-4000-8000-000000000001',
+        agencyRole: 'AGENT',
+      };
+      const result = createUserSchema.safeParse(input);
+      expect(result.success).toBe(true);
+    });
+
+    it('should reject invalid agency role assignment', () => {
+      const input = {
+        fullName: 'Agency Broker',
+        email: 'broker@demo.prospera.test',
+        role: Role.AGENT,
+        agencyRole: 'GLOBAL_SUPERUSER',
+      };
+      const result = createUserSchema.safeParse(input);
+      expect(result.success).toBe(false);
+    });
+
+    it('should require reason when suspending a user account', () => {
+      const valid = updateUserStatusSchema.safeParse({
+        status: AccountStatus.SUSPENDED,
+        reason: 'Violation of Terms of Service',
+      });
+      expect(valid.success).toBe(true);
+    });
   });
 });
 

@@ -561,8 +561,8 @@ export class ApiClient {
     agencyRole?: string;
     password?: string;
     accountStatus?: string;
-  }): Promise<{ user: any; generatedPassword?: string }> {
-    return await this.request<{ user: any; generatedPassword?: string }>('/admin/users', {
+  }): Promise<{ user: any; message?: string }> {
+    return await this.request<{ user: any; message?: string }>('/admin/users', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -576,8 +576,8 @@ export class ApiClient {
     companyName?: string;
     agencyId?: string;
     agencyRole?: string;
-  }): Promise<{ message: string; inviteToken: string; user: any }> {
-    return await this.request<{ message: string; inviteToken: string; user: any }>('/admin/users/invite', {
+  }): Promise<{ message: string; user: any }> {
+    return await this.request<{ message: string; user: any }>('/admin/users/invite', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -619,8 +619,8 @@ export class ApiClient {
 
   public static async requestAdminPasswordReset(
     userId: string
-  ): Promise<{ success: boolean; message: string; email: string; resetCode?: string }> {
-    return await this.request<{ success: boolean; message: string; email: string; resetCode?: string }>(
+  ): Promise<{ success: boolean; message: string; email: string }> {
+    return await this.request<{ success: boolean; message: string; email: string }>(
       `/admin/users/${userId}/password-reset`,
       {
         method: 'POST',

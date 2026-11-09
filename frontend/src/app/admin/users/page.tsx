@@ -76,8 +76,6 @@ export default function AdminUsersPage() {
 
   // Success notifications
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
-  const [createdPasswordNotice, setCreatedPasswordNotice] = useState<{ email: string; pass: string } | null>(null);
-  const [resetCodeNotice, setResetCodeNotice] = useState<{ email: string; code: string } | null>(null);
 
   // Form states
   const [createForm, setCreateForm] = useState({
@@ -157,15 +155,9 @@ export default function AdminUsersPage() {
     e.preventDefault();
     setError(null);
     try {
-      const res = await ApiClient.createAdminUser(createForm);
+      await ApiClient.createAdminUser(createForm);
       setIsCreateModalOpen(false);
       setSuccessNotice(`User ${createForm.fullName} (${createForm.email}) created successfully.`);
-      if (res.generatedPassword) {
-        setCreatedPasswordNotice({
-          email: createForm.email,
-          pass: res.generatedPassword,
-        });
-      }
       setCreateForm({
         fullName: '',
         email: '',
@@ -266,14 +258,8 @@ export default function AdminUsersPage() {
     }
     setError(null);
     try {
-      const res = await ApiClient.requestAdminPasswordReset(u.id);
-      if (res.resetCode) {
-        setResetCodeNotice({
-          email: u.email,
-          code: res.resetCode,
-        });
-      }
-      setSuccessNotice(`Password reset challenge initiated for ${u.email}.`);
+      await ApiClient.requestAdminPasswordReset(u.id);
+      setSuccessNotice(`Password reset challenge dispatched securely to ${u.email}.`);
     } catch (err: any) {
       setError(err?.message || 'Failed to initiate password reset');
     }
@@ -363,48 +349,6 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {createdPasswordNotice && (
-        <div className="bg-amber-50 border border-amber-300 text-amber-900 p-4 rounded-xl text-xs shadow-xs">
-          <div className="flex items-center gap-2 font-bold text-amber-900 mb-1">
-            <KeyRound size={16} />
-            <span>Generated Account Password</span>
-          </div>
-          <p className="text-amber-800 mb-2">
-            Save this temporary password now. For security, it will not be displayed again:
-          </p>
-          <div className="bg-white border border-amber-300 p-2.5 rounded-lg font-mono font-bold text-slate-900 text-sm select-all flex items-center justify-between">
-            <span>{createdPasswordNotice.pass}</span>
-            <span className="text-[10px] text-slate-400 uppercase font-sans font-normal">Click to copy</span>
-          </div>
-          <button
-            onClick={() => setCreatedPasswordNotice(null)}
-            className="mt-2 text-xs font-semibold text-amber-800 hover:underline"
-          >
-            I have securely saved this password
-          </button>
-        </div>
-      )}
-
-      {resetCodeNotice && (
-        <div className="bg-blue-50 border border-blue-300 text-blue-900 p-4 rounded-xl text-xs shadow-xs">
-          <div className="flex items-center gap-2 font-bold text-blue-900 mb-1">
-            <KeyRound size={16} />
-            <span>Administrative Password Reset Challenge Code</span>
-          </div>
-          <p className="text-blue-800 mb-2">
-            Verification OTP generated for <strong>{resetCodeNotice.email}</strong> (valid for 1 hour):
-          </p>
-          <div className="bg-white border border-blue-300 p-2.5 rounded-lg font-mono font-bold text-blue-900 text-base select-all">
-            {resetCodeNotice.code}
-          </div>
-          <button
-            onClick={() => setResetCodeNotice(null)}
-            className="mt-2 text-xs font-semibold text-blue-800 hover:underline"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
 
       {/* Action Header */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">

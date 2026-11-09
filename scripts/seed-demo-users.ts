@@ -185,13 +185,16 @@ async function seedDemoUsers() {
     },
   ];
 
-  // Common strong development demo password
-  const demoPassword = 'Prospera@Demo2026!';
-  const demoPasswordHash = await argon2.hash(demoPassword);
-
+  const personaCredentials: Record<string, string> = {};
   const createdUsers: Record<string, any> = {};
 
   for (const p of personas) {
+    // Generate unique cryptographically strong password for each persona
+    const randomEntropy = crypto.randomBytes(16).toString('base64url');
+    const uniquePersonaPassword = `Pr0sp!${randomEntropy}#${p.key}`;
+    const personaPasswordHash = await argon2.hash(uniquePersonaPassword);
+    personaCredentials[p.key] = uniquePersonaPassword;
+
     const user = await prisma.user.upsert({
       where: { email: p.email },
       update: {
@@ -201,6 +204,7 @@ async function seedDemoUsers() {
         companyName: p.companyName,
         phone: p.phone,
         brn: p.brn ?? null,
+        passwordHash: personaPasswordHash,
         accountStatus: AccountStatus.ACTIVE,
         emailVerifiedAt: new Date(),
         approvedAt: new Date(),
@@ -208,7 +212,7 @@ async function seedDemoUsers() {
       create: {
         email: p.email,
         fullName: p.fullName,
-        passwordHash: demoPasswordHash,
+        passwordHash: personaPasswordHash,
         role: p.role,
         agentType: p.agentType,
         companyName: p.companyName,
@@ -522,7 +526,6 @@ async function seedDemoUsers() {
   const catalogData = {
     generatedAt: new Date().toISOString(),
     notice: 'SYNTHETIC DEMO PERSONAS FOR ISOLATED DEVELOPMENT TESTING. NEVER COMMIT CREDENTIALS TO GIT.',
-    defaultDemoPassword: demoPassword,
     personas: personas.map((p) => ({
       key: p.key,
       role: p.role,
@@ -532,6 +535,7 @@ async function seedDemoUsers() {
       phone: p.phone,
       company: p.companyName,
       description: p.description,
+      secureGeneratedPassword: personaCredentials[p.key],
     })),
   };
 

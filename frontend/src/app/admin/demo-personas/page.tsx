@@ -27,7 +27,7 @@ export default function AdminDemoPersonasPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [switchingEmail, setSwitchingEmail] = useState<string | null>(null);
-  const [customPassword, setCustomPassword] = useState('Prospera@Demo2026!');
+  const [customPassword, setCustomPassword] = useState('');
 
   const loadPersonas = React.useCallback(async () => {
     setIsLoading(true);
@@ -47,6 +47,10 @@ export default function AdminDemoPersonasPage() {
   }, [loadPersonas]);
 
   const handleSwitchPersona = async (email: string) => {
+    if (!customPassword.trim()) {
+      setErrorMsg('Please enter the persona password from .dev-demo-personas.json to authenticate.');
+      return;
+    }
     if (!confirm(`Authenticate as ${email} via real backend authentication?`)) return;
 
     setSwitchingEmail(email);
@@ -136,12 +140,13 @@ export default function AdminDemoPersonasPage() {
         </p>
 
         <div className="pt-2 flex flex-col sm:flex-row sm:items-center gap-3">
-          <label className="text-xs text-slate-400 font-medium">Development Seed Password:</label>
+          <label className="text-xs text-slate-400 font-medium">Persona Password:</label>
           <input
             type="password"
+            placeholder="From .dev-demo-personas.json"
             value={customPassword}
             onChange={(e) => setCustomPassword(e.target.value)}
-            className="px-3 py-1.5 rounded-xl text-xs bg-slate-800 border border-slate-700 text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 max-w-xs"
+            className="px-3 py-1.5 rounded-xl text-xs bg-slate-800 border border-slate-700 text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 max-w-xs placeholder:text-slate-500"
           />
         </div>
       </div>

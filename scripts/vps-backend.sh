@@ -3,7 +3,7 @@ set -euo pipefail
 
 target=${1:-}
 action=${2:-}
-case "$target" in dev|test) ;; *) echo 'Usage: bash scripts/vps-backend.sh <dev|test> <validate|status|migrate|build|lint|unit|integration|test>' >&2; exit 2 ;; esac
+case "$target" in dev|test) ;; *) echo 'Usage: bash scripts/vps-backend.sh <dev|test> <validate|status|migrate|build|lint|unit|integration|test|seed:admin|seed:demo>' >&2; exit 2 ;; esac
 case "$action" in
   validate) command=(./node_modules/.bin/prisma validate) ;;
   status) command=(npm run migrate:status) ;;
@@ -13,10 +13,15 @@ case "$action" in
   unit) command=(npm run test:unit) ;;
   integration) command=(npm run test:integration) ;;
   test) command=(npm test) ;;
+  seed:admin) command=(npm run seed:admin) ;;
+  seed:demo) command=(npm run seed:demo) ;;
   *) echo 'Unknown action' >&2; exit 2 ;;
 esac
 case "$action" in unit|integration|test)
   if [[ "$target" != test ]]; then echo 'Run tests only against the test environment.' >&2; exit 2; fi ;;
+esac
+case "$action" in seed:admin|seed:demo)
+  if [[ "$target" != dev ]]; then echo 'Run database seeding only against the isolated dev environment.' >&2; exit 2; fi ;;
 esac
 if [[ -d /opt/prospera/runtime/node/bin ]]; then
   export PATH="/opt/prospera/runtime/node/bin:$PATH"
