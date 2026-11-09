@@ -10,4 +10,4 @@ router.use(authenticate);
 // Authorized private document streaming / download
 router.get('/:id/download', (req, res, next) => controller.downloadDocument(req, res, next));
 
-export const documentRouter = router;
+export const documentRouter: Router = router;

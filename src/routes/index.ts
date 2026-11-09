@@ -38,5 +38,5 @@ router.use('/admin', adminRouter);
 // Authorized Private Document Streaming routes
 router.use('/documents', documentRouter);
 
-export const apiRouter = router;
+export const apiRouter: Router = router;
 

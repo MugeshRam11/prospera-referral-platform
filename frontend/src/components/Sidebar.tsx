@@ -19,6 +19,14 @@ import {
   ArrowRight,
   LogOut,
   X,
+  Headphones,
+  Briefcase,
+  LifeBuoy,
+  Sparkles,
+  Layers,
+  History,
+  BarChart3,
+  UserCog,
 } from 'lucide-react';
 import { UserSummary } from '../types';
 import prosperaWhiteIcon from '../assets/prospera-white-logo-icon.png';
@@ -40,62 +48,88 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const pathname = usePathname();
 
-  const navItems = [
-    {
-      label: 'Dashboard',
-      href: '/',
-      icon: LayoutDashboard,
-    },
-    {
-      label: 'New Referral',
-      href: '/referrals/new',
-      icon: Plus,
-    },
-    {
-      label: 'My Referrals',
-      href: '/referrals',
-      icon: FileText,
-    },
-    {
-      label: 'Clients',
-      href: '/clients',
-      icon: Users,
-    },
-    {
-      label: 'Properties & Services',
-      href: '/services',
-      icon: Building2,
-    },
-    {
-      label: 'Commissions',
-      href: '/commissions',
-      icon: Coins,
-    },
-    {
-      label: 'Withdrawals',
-      href: '/withdrawals',
-      icon: CreditCard,
-    },
-    {
-      label: 'Documents & Verification',
-      href: '/kyc',
-      icon: ShieldCheck,
-    },
-    {
-      label: 'Settings',
-      href: '/settings',
-      icon: Settings,
-    },
-    ...(user?.role === 'ADMIN'
-      ? [
-          {
-            label: 'Prospera Admin',
-            href: '/admin',
-            icon: ShieldAlert,
-          },
-        ]
-      : []),
-  ];
+  const getNavItems = () => {
+    if (!user) {
+      return [
+        { label: 'Dashboard', href: '/', icon: LayoutDashboard },
+        { label: 'Services', href: '/services', icon: Building2 },
+      ];
+    }
+
+    if (user.role === 'ADMIN') {
+      return [
+        { label: 'Admin Overview', href: '/admin', icon: LayoutDashboard },
+        { label: 'User Management', href: '/admin/users', icon: UserCog },
+        { label: 'Agents', href: '/admin/agents', icon: Users },
+        { label: 'Agencies', href: '/admin/agencies', icon: Building2 },
+        { label: 'Coordinators', href: '/admin/coordinators', icon: Headphones },
+        { label: 'Referral Partners', href: '/admin/partners', icon: Briefcase },
+        { label: 'Referrals Pipeline', href: '/admin/referrals', icon: FileText },
+        { label: 'Service Catalog', href: '/admin/services', icon: Layers },
+        { label: 'KYC Review', href: '/admin/kyc', icon: ShieldCheck },
+        { label: 'Banking Verification', href: '/admin/banking', icon: CreditCard },
+        { label: 'Commissions', href: '/admin/commissions', icon: Coins },
+        { label: 'Reports', href: '/admin/reports', icon: BarChart3 },
+        { label: 'Audit Logs', href: '/admin/audit-logs', icon: History },
+        { label: 'Demo Personas', href: '/admin/demo-personas', icon: Sparkles },
+        { label: 'Settings', href: '/settings', icon: Settings },
+      ];
+    }
+
+    if (user.role === 'COORDINATOR') {
+      return [
+        { label: 'Coordinator Desk', href: '/coordinator', icon: Headphones },
+        { label: 'Referrals Pipeline', href: '/admin/referrals', icon: FileText },
+        { label: 'Service Catalog', href: '/services', icon: Building2 },
+        { label: 'Profile & Settings', href: '/settings', icon: Settings },
+        { label: 'Concierge Support', href: '/support', icon: LifeBuoy },
+      ];
+    }
+
+    if (user.role === 'REFERRAL_PARTNER') {
+      return [
+        { label: 'Partner Dashboard', href: '/partner', icon: LayoutDashboard },
+        { label: 'New Referral', href: '/referrals/new', icon: Plus },
+        { label: 'My Referrals', href: '/referrals', icon: FileText },
+        { label: 'Services', href: '/services', icon: Building2 },
+        { label: 'Commissions', href: '/commissions', icon: Coins },
+        { label: 'Withdrawals', href: '/withdrawals', icon: CreditCard },
+        { label: 'Company KYC', href: '/kyc', icon: ShieldCheck },
+        { label: 'Company Profile', href: '/settings', icon: Settings },
+        { label: 'Concierge Support', href: '/support', icon: LifeBuoy },
+      ];
+    }
+
+    if (user.agentType === 'AGENCY_MEMBER') {
+      return [
+        { label: 'Agency Portal', href: '/agency', icon: Building2 },
+        { label: 'Dashboard', href: '/', icon: LayoutDashboard },
+        { label: 'My Referrals', href: '/referrals', icon: FileText },
+        { label: 'Properties & Services', href: '/services', icon: Building2 },
+        { label: 'My Commissions', href: '/commissions', icon: Coins },
+        { label: 'Withdrawals', href: '/withdrawals', icon: CreditCard },
+        { label: 'My KYC & Docs', href: '/kyc', icon: ShieldCheck },
+        { label: 'Profile & Settings', href: '/settings', icon: Settings },
+        { label: 'Support Desk', href: '/support', icon: LifeBuoy },
+      ];
+    }
+
+    // Default: INDEPENDENT AGENT
+    return [
+      { label: 'Dashboard', href: '/', icon: LayoutDashboard },
+      { label: 'New Referral', href: '/referrals/new', icon: Plus },
+      { label: 'My Referrals', href: '/referrals', icon: FileText },
+      { label: 'Clients', href: '/clients', icon: Users },
+      { label: 'Properties & Services', href: '/services', icon: Building2 },
+      { label: 'Commissions', href: '/commissions', icon: Coins },
+      { label: 'Withdrawals', href: '/withdrawals', icon: CreditCard },
+      { label: 'Documents & KYC', href: '/kyc', icon: ShieldCheck },
+      { label: 'Profile & Settings', href: '/settings', icon: Settings },
+      { label: 'Support Desk', href: '/support', icon: LifeBuoy },
+    ];
+  };
+
+  const navItems = getNavItems();
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
@@ -252,8 +286,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className="text-slate-400 text-[10.5px] font-medium leading-none mt-0.5 truncate max-w-[110px]">
                   {user?.role === 'ADMIN'
                     ? 'Administrator'
+                    : user?.role === 'COORDINATOR'
+                    ? 'Lead Coordinator'
+                    : user?.role === 'REFERRAL_PARTNER'
+                    ? 'Referral Partner'
                     : user?.agentType === 'AGENCY_MEMBER'
-                    ? 'Agency Member'
+                    ? 'Agency Broker'
                     : 'Independent Agent'}
                 </span>
               </div>

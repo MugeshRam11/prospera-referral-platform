@@ -15,6 +15,9 @@ node_modules/
 *.crt
 id_rsa*
 secrets/
+.secrets/
+.dev-admin-credentials.json
+.dev-demo-personas.json
 
 # Build output
 dist/

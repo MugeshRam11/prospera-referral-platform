@@ -12,6 +12,18 @@ import {
   Lock,
   ArrowLeft,
   AlertOctagon,
+  UserCheck,
+  UserCog,
+  Briefcase,
+  Headphones,
+  FileText,
+  Layers,
+  CreditCard,
+  Coins,
+  BarChart3,
+  History,
+  Sparkles,
+  Settings,
 } from 'lucide-react';
 import { UserSummary } from '../../types';
 import { ApiClient } from '../../lib/api';
@@ -41,9 +53,20 @@ export default function AdminLayout({
 
   const adminTabs = [
     { label: 'Overview', href: '/admin', icon: LayoutDashboard },
-    { label: 'Agent Directory', href: '/admin/agents', icon: Users },
-    { label: 'Agency Directory', href: '/admin/agencies', icon: Building2 },
+    { label: 'User Management', href: '/admin/users', icon: UserCog },
+    { label: 'Agent Directory', href: '/admin/agents', icon: UserCheck },
+    { label: 'Agencies', href: '/admin/agencies', icon: Building2 },
+    { label: 'Coordinators', href: '/admin/coordinators', icon: Headphones },
+    { label: 'Referral Partners', href: '/admin/partners', icon: Briefcase },
+    { label: 'Referrals Pipeline', href: '/admin/referrals', icon: FileText },
+    { label: 'Service Catalog', href: '/admin/services', icon: Layers },
     { label: 'KYC Review Queue', href: '/admin/kyc', icon: FileCheck2 },
+    { label: 'Banking Verification', href: '/admin/banking', icon: CreditCard },
+    { label: 'Commissions', href: '/admin/commissions', icon: Coins },
+    { label: 'Reports', href: '/admin/reports', icon: BarChart3 },
+    { label: 'Audit Logs', href: '/admin/audit-logs', icon: History },
+    { label: 'Demo Personas', href: '/admin/demo-personas', icon: Sparkles },
+    { label: 'Settings', href: '/settings', icon: Settings },
   ];
 
   if (isLoadingAuth) {

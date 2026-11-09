@@ -18,4 +18,4 @@ router.get('/health', (_req: Request, res: Response<ApiResponse<HealthCheckData>
   });
 });
 
-export const healthRouter = router;
+export const healthRouter: Router = router;

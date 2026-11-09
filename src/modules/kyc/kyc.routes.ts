@@ -39,4 +39,4 @@ router.post(
   (req, res, next) => controller.submitKyc(req, res, next)
 );
 
-export const kycRouter = router;
+export const kycRouter: Router = router;

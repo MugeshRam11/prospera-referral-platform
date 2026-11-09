@@ -1,7 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { AdminService } from './admin.service';
 import { ApiResponse, KycStatus, AccountStatus, AgencyStatus } from '../../types';
-import { AgentQueryInput, AgencyQueryInput } from './admin.validation';
+import {
+  AgentQueryInput,
+  AgencyQueryInput,
+  UserQueryInput,
+  AdminReferralQueryInput,
+} from './admin.validation';
 
 const adminService = new AdminService();
 
@@ -229,6 +234,244 @@ export class AdminController {
       const actorUserId = req.query.actorUserId as string | undefined;
 
       const result = await adminService.getAuditLogs(page, limit, entityType, actorUserId);
+      res.status(200).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async getUsers(req: Request, res: Response<ApiResponse>, next: NextFunction): Promise<void> {
+    try {
+      const result = await adminService.getUsers(req.query as unknown as UserQueryInput);
+      res.status(200).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async getUserDetails(req: Request, res: Response<ApiResponse>, next: NextFunction): Promise<void> {
+    try {
+      const userId = getParam(req.params.id);
+      const result = await adminService.getUserDetails(userId);
+      res.status(200).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async createUser(req: Request, res: Response<ApiResponse>, next: NextFunction): Promise<void> {
+    try {
+      const adminId = req.user!.id;
+      const result = await adminService.createUser(req.body, adminId, req.ip, getUserAgent(req));
+      res.status(201).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async inviteUser(req: Request, res: Response<ApiResponse>, next: NextFunction): Promise<void> {
+    try {
+      const adminId = req.user!.id;
+      const result = await adminService.inviteUser(req.body, adminId, req.ip, getUserAgent(req));
+      res.status(201).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async updateUser(req: Request, res: Response<ApiResponse>, next: NextFunction): Promise<void> {
+    try {
+      const userId = getParam(req.params.id);
+      const adminId = req.user!.id;
+      const result = await adminService.updateUser(userId, req.body, adminId, req.ip, getUserAgent(req));
+      res.status(200).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async updateUserStatus(req: Request, res: Response<ApiResponse>, next: NextFunction): Promise<void> {
+    try {
+      const userId = getParam(req.params.id);
+      const adminId = req.user!.id;
+      const { status, reason } = req.body;
+      const result = await adminService.updateUserStatus(
+        userId,
+        status as AccountStatus,
+        adminId,
+        reason,
+        req.ip,
+        getUserAgent(req)
+      );
+      res.status(200).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async requestPasswordReset(req: Request, res: Response<ApiResponse>, next: NextFunction): Promise<void> {
+    try {
+      const userId = getParam(req.params.id);
+      const adminId = req.user!.id;
+      const result = await adminService.requestPasswordReset(userId, adminId, req.ip, getUserAgent(req));
+      res.status(200).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async getCoordinators(req: Request, res: Response<ApiResponse>, next: NextFunction): Promise<void> {
+    try {
+      const page = req.query.page ? parseInt(String(req.query.page), 10) : 1;
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 20;
+      const search = req.query.search as string | undefined;
+      const result = await adminService.getCoordinators(page, limit, search);
+      res.status(200).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async getReferralPartners(req: Request, res: Response<ApiResponse>, next: NextFunction): Promise<void> {
+    try {
+      const page = req.query.page ? parseInt(String(req.query.page), 10) : 1;
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 20;
+      const search = req.query.search as string | undefined;
+      const result = await adminService.getReferralPartners(page, limit, search);
+      res.status(200).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async getAllReferrals(req: Request, res: Response<ApiResponse>, next: NextFunction): Promise<void> {
+    try {
+      const result = await adminService.getAllReferrals(req.query as unknown as AdminReferralQueryInput);
+      res.status(200).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async getAllServices(req: Request, res: Response<ApiResponse>, next: NextFunction): Promise<void> {
+    try {
+      const result = await adminService.getAllServices();
+      res.status(200).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async createService(req: Request, res: Response<ApiResponse>, next: NextFunction): Promise<void> {
+    try {
+      const adminId = req.user!.id;
+      const result = await adminService.createService(req.body, adminId, req.ip, getUserAgent(req));
+      res.status(201).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async getAllBankAccounts(req: Request, res: Response<ApiResponse>, next: NextFunction): Promise<void> {
+    try {
+      const page = req.query.page ? parseInt(String(req.query.page), 10) : 1;
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 20;
+      const isVerified = req.query.isVerified !== undefined ? req.query.isVerified === 'true' : undefined;
+      const result = await adminService.getAllBankAccounts(page, limit, isVerified);
+      res.status(200).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async getCommissionsLedger(req: Request, res: Response<ApiResponse>, next: NextFunction): Promise<void> {
+    try {
+      const page = req.query.page ? parseInt(String(req.query.page), 10) : 1;
+      const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : 50;
+      const status = req.query.status as string | undefined;
+      const result = await adminService.getCommissionsLedger(page, limit, status);
+      res.status(200).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async getPlatformReports(req: Request, res: Response<ApiResponse>, next: NextFunction): Promise<void> {
+    try {
+      const result = await adminService.getPlatformReports();
+      res.status(200).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  public async getDemoPersonas(req: Request, res: Response<ApiResponse>, next: NextFunction): Promise<void> {
+    try {
+      const result = await adminService.getDemoPersonas();
       res.status(200).json({
         success: true,
         data: result,

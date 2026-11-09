@@ -175,6 +175,44 @@ export default function DashboardPage() {
           <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
             Keep building your network — more opportunities await!
           </p>
+
+          {/* Role Portal Jump Pill */}
+          {user?.role === 'ADMIN' && (
+            <Link
+              href="/admin"
+              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors w-fit border border-blue-200"
+            >
+              <span>Prospera Administration Portal</span>
+              <ArrowRight size={13} />
+            </Link>
+          )}
+          {user?.role === 'COORDINATOR' && (
+            <Link
+              href="/coordinator"
+              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition-colors w-fit border border-indigo-200"
+            >
+              <span>Coordinator Dispatch Desk</span>
+              <ArrowRight size={13} />
+            </Link>
+          )}
+          {user?.role === 'REFERRAL_PARTNER' && (
+            <Link
+              href="/partner"
+              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 transition-colors w-fit border border-emerald-200"
+            >
+              <span>Corporate Partner Portal</span>
+              <ArrowRight size={13} />
+            </Link>
+          )}
+          {user?.agentType === 'AGENCY_MEMBER' && (
+            <Link
+              href="/agency"
+              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 text-xs font-semibold hover:bg-purple-100 transition-colors w-fit border border-purple-200"
+            >
+              <span>Agency Organization Portal</span>
+              <ArrowRight size={13} />
+            </Link>
+          )}
         </div>
 
         {/* Right: Luxury Property Hero Banner */}

@@ -238,6 +238,7 @@ export interface LeadItem {
   partner?: UserSummary;
   coordinator?: UserSummary | null;
   agent?: UserSummary | null;
+  assignedAgent?: UserSummary | null;
   service?: ServiceItem;
   statusHistory?: LeadStatusHistoryItem[];
 }
@@ -273,6 +274,7 @@ export interface BankAccountItem {
   accountHolderName: string;
   ibanLast4: string;
   maskedIban?: string;
+  ibanMasked?: string;
   currency: string;
   hasConfirmationDoc?: boolean;
   bankConfirmationDocKey?: string | null;
@@ -281,6 +283,16 @@ export interface BankAccountItem {
   rejectionReason?: string | null;
   verifiedAt?: string | null;
   createdAt: string;
+  user?: {
+    id: string;
+    fullName: string;
+    email: string;
+    role: string;
+  } | null;
+  agency?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 export interface WithdrawalItem {
@@ -440,3 +452,155 @@ export interface PaginationMeta {
   total: number;
   totalPages: number;
 }
+
+export interface AdminUserItem {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  whatsapp?: string | null;
+  avatarUrl?: string | null;
+  brn?: string | null;
+  nationality?: string | null;
+  role: Role;
+  agentType?: AgentType;
+  accountStatus: AccountStatus;
+  companyName?: string | null;
+  createdAt: string;
+  approvedAt?: string | null;
+  agency?: {
+    id: string;
+    name: string;
+    tradeLicenseNo: string;
+  } | null;
+  agencyRole?: AgencyRole | null;
+  kycStatusSummary: 'VERIFIED' | 'PENDING_REVIEW' | 'REJECTED' | 'CHANGES_REQUESTED' | 'INCOMPLETE';
+  lastLogin?: string | null;
+  activeSessionsCount: number;
+  hasVerifiedBank: boolean;
+}
+
+export interface AdminUserDetails {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  whatsapp?: string | null;
+  avatarUrl?: string | null;
+  brn?: string | null;
+  nationality?: string | null;
+  role: Role;
+  agentType: AgentType;
+  accountStatus: AccountStatus;
+  companyName?: string | null;
+  referralCode?: string | null;
+  emailVerifiedAt?: string | null;
+  kycVerifiedAt?: string | null;
+  approvedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  kycStatusSummary: 'VERIFIED' | 'PENDING_REVIEW' | 'REJECTED' | 'CHANGES_REQUESTED' | 'INCOMPLETE';
+  agency?: AgencyDetails | null;
+  agencyRole?: AgencyRole | null;
+  coordinator?: {
+    id: string;
+    fullName: string;
+    email: string;
+    phone?: string | null;
+  } | null;
+  assignedUsers: {
+    id: string;
+    fullName: string;
+    email: string;
+    role: Role;
+    accountStatus: AccountStatus;
+  }[];
+  kycDocuments: KycDocumentItem[];
+  bankAccounts: BankAccountItem[];
+  referrals: {
+    id: string;
+    referenceNo: string;
+    clientName: string;
+    status: LeadStatus;
+    expectedDealValue: number;
+    currency: string;
+    createdAt: string;
+  }[];
+  leadCounts: {
+    partnerLeads: number;
+    agentLeads: number;
+    coordinatorLeads: number;
+  };
+  activeSessions: {
+    id: string;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+    lastActiveAt: string;
+    createdAt: string;
+  }[];
+  recentActivity: {
+    id: string;
+    action: string;
+    entityType: string;
+    entityId: string;
+    oldValues?: any;
+    newValues?: any;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+    createdAt: string;
+    actorUser?: {
+      fullName: string;
+      email: string;
+      role: Role;
+    } | null;
+  }[];
+}
+
+export interface AdminCoordinatorItem {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  accountStatus: AccountStatus;
+  createdAt: string;
+  assignedAgentsCount: number;
+  assignedLeadsCount: number;
+  recentAgents: {
+    id: string;
+    fullName: string;
+    role: Role;
+  }[];
+}
+
+export interface AdminReferralPartnerItem {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  companyName?: string | null;
+  accountStatus: AccountStatus;
+  createdAt: string;
+  totalReferrals: number;
+  wonReferralsCount: number;
+  wonVolume: number;
+  hasVerifiedBank: boolean;
+}
+
+export interface AdminDemoPersonaItem {
+  id: string;
+  fullName: string;
+  email: string;
+  role: Role;
+  agentType: AgentType;
+  accountStatus: AccountStatus;
+  companyName?: string | null;
+  agency?: {
+    id: string;
+    name: string;
+  } | null;
+  agencyName?: string | null;
+  agencyRole?: AgencyRole | null;
+  kycStatus?: string | null;
+  personaDescription?: string | null;
+}
+

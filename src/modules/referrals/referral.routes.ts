@@ -88,4 +88,4 @@ router.get(
   controller.getHistory
 );
 
-export const referralRouter = router;
+export const referralRouter: Router = router;

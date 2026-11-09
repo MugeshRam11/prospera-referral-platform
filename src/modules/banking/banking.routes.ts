@@ -39,4 +39,4 @@ router.delete(
   (req, res, next) => controller.deleteBankAccount(req, res, next)
 );
 
-export const bankingRouter = router;
+export const bankingRouter: Router = router;

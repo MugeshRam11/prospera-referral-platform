@@ -17,6 +17,11 @@ import {
   AdminAgencyItem,
   AdminPendingKycItem,
   PaginationMeta,
+  AdminUserItem,
+  AdminUserDetails,
+  AdminCoordinatorItem,
+  AdminReferralPartnerItem,
+  AdminDemoPersonaItem,
 } from '../types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
@@ -513,6 +518,228 @@ export class ApiClient {
     );
   }
 
+  // --- Complete User Management & Multi-Role Admin APIs ---
+
+  public static async getAdminUsers(params?: {
+    search?: string;
+    role?: string;
+    accountStatus?: string;
+    agentType?: string;
+    kycStatus?: string;
+    agencyId?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ users: AdminUserItem[]; pagination: PaginationMeta }> {
+    const searchParams = new URLSearchParams();
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.role && params.role !== 'ALL') searchParams.set('role', params.role);
+    if (params?.accountStatus && params.accountStatus !== 'ALL') searchParams.set('accountStatus', params.accountStatus);
+    if (params?.agentType && params.agentType !== 'ALL') searchParams.set('agentType', params.agentType);
+    if (params?.kycStatus && params.kycStatus !== 'ALL') searchParams.set('kycStatus', params.kycStatus);
+    if (params?.agencyId) searchParams.set('agencyId', params.agencyId);
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+
+    return await this.request<{ users: AdminUserItem[]; pagination: PaginationMeta }>(
+      `/admin/users?${searchParams.toString()}`
+    );
+  }
+
+  public static async getAdminUserDetails(userId: string): Promise<{ user: AdminUserDetails }> {
+    return await this.request<{ user: AdminUserDetails }>(`/admin/users/${userId}`);
+  }
+
+  public static async createAdminUser(data: {
+    fullName: string;
+    email: string;
+    role: string;
+    phone?: string;
+    whatsapp?: string;
+    agentType?: string;
+    companyName?: string;
+    agencyId?: string;
+    agencyRole?: string;
+    password?: string;
+    accountStatus?: string;
+  }): Promise<{ user: any; generatedPassword?: string }> {
+    return await this.request<{ user: any; generatedPassword?: string }>('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  public static async inviteAdminUser(data: {
+    fullName: string;
+    email: string;
+    role: string;
+    agentType?: string;
+    companyName?: string;
+    agencyId?: string;
+    agencyRole?: string;
+  }): Promise<{ message: string; inviteToken: string; user: any }> {
+    return await this.request<{ message: string; inviteToken: string; user: any }>('/admin/users/invite', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  public static async updateAdminUser(
+    userId: string,
+    data: {
+      fullName?: string;
+      phone?: string | null;
+      whatsapp?: string | null;
+      brn?: string | null;
+      nationality?: string | null;
+      companyName?: string | null;
+      role?: string;
+      agentType?: string;
+      coordinatorId?: string | null;
+    }
+  ): Promise<any> {
+    return await this.request<any>(`/admin/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  public static async updateAdminUserStatus(
+    userId: string,
+    status: string,
+    reason?: string
+  ): Promise<{ id: string; accountStatus: string; approvedAt?: string | null }> {
+    return await this.request<{ id: string; accountStatus: string; approvedAt?: string | null }>(
+      `/admin/users/${userId}/status`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ status, reason }),
+      }
+    );
+  }
+
+  public static async requestAdminPasswordReset(
+    userId: string
+  ): Promise<{ success: boolean; message: string; email: string; resetCode?: string }> {
+    return await this.request<{ success: boolean; message: string; email: string; resetCode?: string }>(
+      `/admin/users/${userId}/password-reset`,
+      {
+        method: 'POST',
+      }
+    );
+  }
+
+  public static async getAdminCoordinators(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<{ coordinators: AdminCoordinatorItem[]; pagination: PaginationMeta }> {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.search) searchParams.set('search', params.search);
+
+    return await this.request<{ coordinators: AdminCoordinatorItem[]; pagination: PaginationMeta }>(
+      `/admin/coordinators?${searchParams.toString()}`
+    );
+  }
+
+  public static async getAdminReferralPartners(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<{ partners: AdminReferralPartnerItem[]; pagination: PaginationMeta }> {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.search) searchParams.set('search', params.search);
+
+    return await this.request<{ partners: AdminReferralPartnerItem[]; pagination: PaginationMeta }>(
+      `/admin/partners?${searchParams.toString()}`
+    );
+  }
+
+  public static async getAdminAllReferrals(params?: {
+    search?: string;
+    status?: string;
+    serviceId?: string;
+    partnerId?: string;
+    agentId?: string;
+    coordinatorId?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ referrals: any[]; pagination: PaginationMeta }> {
+    const searchParams = new URLSearchParams();
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.status && params.status !== 'ALL') searchParams.set('status', params.status);
+    if (params?.serviceId) searchParams.set('serviceId', params.serviceId);
+    if (params?.partnerId) searchParams.set('partnerId', params.partnerId);
+    if (params?.agentId) searchParams.set('agentId', params.agentId);
+    if (params?.coordinatorId) searchParams.set('coordinatorId', params.coordinatorId);
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+
+    return await this.request<{ referrals: any[]; pagination: PaginationMeta }>(
+      `/admin/referrals?${searchParams.toString()}`
+    );
+  }
+
+  public static async getAdminServicesList(): Promise<any[]> {
+    return await this.request<any[]>('/admin/services');
+  }
+
+  public static async createAdminService(data: {
+    name: string;
+    slug: string;
+    description?: string;
+    categoryId?: string;
+    defaultPartnerCommissionBps?: number;
+    defaultAgentCommissionBps?: number;
+    isActive?: boolean;
+  }): Promise<any> {
+    return await this.request<any>('/admin/services', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  public static async getAdminBankAccountsList(params?: {
+    page?: number;
+    limit?: number;
+    isVerified?: boolean;
+  }): Promise<{ accounts: BankAccountItem[]; pagination: PaginationMeta }> {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.isVerified !== undefined) searchParams.set('isVerified', params.isVerified.toString());
+
+    return await this.request<{ accounts: BankAccountItem[]; pagination: PaginationMeta }>(
+      `/admin/banking?${searchParams.toString()}`
+    );
+  }
+
+  public static async getAdminCommissionsLedgerList(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+  }): Promise<{ entries: any[]; pagination: PaginationMeta }> {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.status && params.status !== 'ALL') searchParams.set('status', params.status);
+
+    return await this.request<{ entries: any[]; pagination: PaginationMeta }>(
+      `/admin/commissions?${searchParams.toString()}`
+    );
+  }
+
+  public static async getAdminPlatformReports(): Promise<any> {
+    return await this.request<any>('/admin/reports');
+  }
+
+  public static async getAdminDemoPersonas(): Promise<{ personas: AdminDemoPersonaItem[] }> {
+    return await this.request<{ personas: AdminDemoPersonaItem[] }>('/admin/demo-personas');
+  }
+
   // ============================================================================
   // 7. REFERRAL & METRICS APIS (Preserved)
   // ============================================================================
@@ -562,12 +789,49 @@ export class ApiClient {
   public static async updateReferralStatus(
     id: string,
     newStatus: LeadStatus,
-    note?: string
+    note?: string,
+    actualDealValue?: number
   ): Promise<LeadItem> {
     return await this.request<LeadItem>(`/referrals/${id}/status`, {
-      method: 'POST',
-      body: JSON.stringify({ newStatus, transitionNote: note }),
+      method: 'PATCH',
+      body: JSON.stringify({
+        status: newStatus,
+        transitionNote: note || undefined,
+        actualDealValue: actualDealValue || undefined,
+      }),
     });
+  }
+
+  public static async assignReferral(
+    id: string,
+    data: {
+      agentId?: string | null;
+      coordinatorId?: string | null;
+      assignmentNote?: string;
+    }
+  ): Promise<LeadItem> {
+    return await this.request<LeadItem>(`/referrals/${id}/assign`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  public static async getReferralHistory(
+    id: string
+  ): Promise<Array<{
+    id: string;
+    fromStatus: string;
+    toStatus: string;
+    notes?: string | null;
+    createdAt: string;
+    changedByUser?: { fullName: string; role: string } | null;
+  }>> {
+    try {
+      const res = await this.request<any>(`/referrals/${id}/history`);
+      return res || [];
+    } catch {
+      return [];
+    }
   }
 
   public static async getServices(): Promise<ServiceItem[]> {

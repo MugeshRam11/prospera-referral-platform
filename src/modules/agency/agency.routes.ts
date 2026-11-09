@@ -69,4 +69,4 @@ router.delete(
   (req, res, next) => controller.removeMember(req, res, next)
 );
 
-export const agencyRouter = router;
+export const agencyRouter: Router = router;

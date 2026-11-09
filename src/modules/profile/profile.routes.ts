@@ -46,4 +46,4 @@ router.post(
   (req, res, next) => controller.requestAccountDeletion(req, res, next)
 );
 
-export const profileRouter = router;
+export const profileRouter: Router = router;
