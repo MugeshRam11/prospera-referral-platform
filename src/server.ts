@@ -1,10 +1,10 @@
 import { app } from './app';
 import { config } from './config';
 
-const server = app.listen(config.PORT, () => {
-  console.log(`Prospera Referral API server running on port ${config.PORT}`);
+const server = app.listen(config.PORT, config.HOST, () => {
+  console.log(`Prospera Referral API server running on ${config.HOST}:${config.PORT}`);
   console.log(`Environment: ${config.NODE_ENV}`);
-  console.log(`Health check: http://localhost:${config.PORT}${config.API_PREFIX}/health`);
+  console.log(`Health check: http://${config.HOST}:${config.PORT}${config.API_PREFIX}/health`);
 });
 
 const gracefulShutdown = (signal: string) => {

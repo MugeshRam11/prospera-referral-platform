@@ -265,6 +265,10 @@ export class AgencyService {
       throw new Error('Unauthorized: Only agency owners and admins can issue invitations');
     }
 
+    if (input.role === AgencyRole.AGENCY_ADMIN && membership.role !== AgencyRole.AGENCY_OWNER) {
+      throw new Error('Unauthorized: Only an agency owner can invite agency administrators');
+    }
+
     // Generate secure 16-byte random token
     const inviteToken = `INV-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
@@ -419,6 +423,10 @@ export class AgencyService {
 
     if (targetMembership.role === AgencyRole.AGENCY_OWNER) {
       throw new Error('Cannot remove the agency owner');
+    }
+
+    if (callerMembership.role === AgencyRole.AGENCY_ADMIN && targetMembership.role === AgencyRole.AGENCY_ADMIN) {
+      throw new Error('Unauthorized: Agency admins cannot remove other administrators');
     }
 
     await prisma.$transaction(async (tx) => {

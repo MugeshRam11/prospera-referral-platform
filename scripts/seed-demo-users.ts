@@ -109,6 +109,48 @@ async function seedDemoUsers() {
     },
   });
 
+  const srvCorporate = await prisma.service.upsert({
+    where: { slug: 'corporate-advisory' },
+    update: {},
+    create: {
+      slug: 'corporate-advisory',
+      name: 'Corporate Advisory & SPVs',
+      description: 'DIFC and ADGM SPV asset protection vehicles, cross-border holding structures, and legal entity setup.',
+      categoryId: catFinancial.id,
+      defaultPartnerCommissionBps: 150,
+      defaultAgentCommissionBps: 100,
+      isActive: true,
+    },
+  });
+
+  const srvBanking = await prisma.service.upsert({
+    where: { slug: 'bank-account-opening' },
+    update: {},
+    create: {
+      slug: 'bank-account-opening',
+      name: 'Corporate Bank Account Opening',
+      description: 'Corporate banking facilitation with leading UAE financial institutions (account opening subject to bank KYC and compliance approval).',
+      categoryId: catFinancial.id,
+      defaultPartnerCommissionBps: 100,
+      defaultAgentCommissionBps: 75,
+      isActive: true,
+    },
+  });
+
+  const srvFormation = await prisma.service.upsert({
+    where: { slug: 'company-formation' },
+    update: {},
+    create: {
+      slug: 'company-formation',
+      name: 'Company Formation & Licensing',
+      description: 'Dubai Mainland LLC (DET) incorporation, Free Zone licensing (DMCC, IFZA, DAFZA), and commercial permits.',
+      categoryId: catFinancial.id,
+      defaultPartnerCommissionBps: 200,
+      defaultAgentCommissionBps: 150,
+      isActive: true,
+    },
+  });
+
   // Persona definitions
   const personas = [
     {

@@ -43,6 +43,8 @@ export const authenticate = async (
       return;
     }
 
+    const primaryMembership = sessionContext.user.agencyMemberships?.[0];
+
     req.user = {
       id: sessionContext.user.id,
       email: sessionContext.user.email,
@@ -57,6 +59,16 @@ export const authenticate = async (
       companyName: sessionContext.user.companyName,
       referralCode: sessionContext.user.referralCode,
       emailVerifiedAt: sessionContext.user.emailVerifiedAt,
+      agencyId: primaryMembership ? primaryMembership.agencyId : null,
+      agencyRole: primaryMembership ? primaryMembership.role : null,
+      agency: primaryMembership?.agency
+        ? {
+            id: primaryMembership.agency.id,
+            name: primaryMembership.agency.name,
+            legalName: primaryMembership.agency.legalName,
+            status: primaryMembership.agency.status,
+          }
+        : null,
     };
 
     req.session = {

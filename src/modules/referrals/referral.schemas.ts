@@ -27,6 +27,7 @@ export const createReferralSchema = z
     currency: z.string().min(3).max(3).default('AED'),
     notes: z.string().max(2000, 'Notes cannot exceed 2000 characters').optional().nullable(),
     partnerId: z.string().uuid({ message: 'Invalid partner ID format' }).optional(),
+    asDraft: z.boolean().optional(),
   })
   .strict();
 

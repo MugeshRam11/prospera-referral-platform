@@ -36,12 +36,17 @@ export class AdminService {
       totalIndependentAgents,
       totalAgencies,
       totalAgencyMembers,
-      pendingAgentApprovals,
+      verifiedAgencies,
       pendingAgencyApprovals,
+      pendingAgentApprovals,
       pendingKycReviews,
+      pendingBankVerifications,
+      unassignedLeads,
+      activeReferralsCount,
       verifiedAccounts,
       suspendedAccounts,
       recentUsers,
+      recentAuditLogs,
     ] = await Promise.all([
       // Total Independent Agents
       prisma.user.count({
@@ -59,10 +64,10 @@ export class AdminService {
           agentType: 'AGENCY_MEMBER',
         },
       }),
-      // Pending Agent Approvals
-      prisma.user.count({
+      // Verified Agencies
+      prisma.agency.count({
         where: {
-          accountStatus: AccountStatus.PENDING_APPROVAL,
+          status: AgencyStatus.VERIFIED,
         },
       }),
       // Pending Agency Approvals
@@ -71,10 +76,38 @@ export class AdminService {
           status: AgencyStatus.PENDING_VERIFICATION,
         },
       }),
+      // Pending Agent Approvals
+      prisma.user.count({
+        where: {
+          accountStatus: AccountStatus.PENDING_APPROVAL,
+        },
+      }),
       // Pending KYC Document Reviews
       prisma.kycDocument.count({
         where: {
           status: KycStatus.PENDING_REVIEW,
+        },
+      }),
+      // Pending Bank Verifications
+      prisma.bankAccount.count({
+        where: {
+          isVerified: false,
+          rejectionReason: null,
+        },
+      }),
+      // Unassigned Leads awaiting triage
+      prisma.lead.count({
+        where: {
+          agentId: null,
+          status: LeadStatus.SUBMITTED,
+        },
+      }),
+      // Active Referrals Pipeline
+      prisma.lead.count({
+        where: {
+          status: {
+            notIn: [LeadStatus.WON, LeadStatus.LOST, LeadStatus.CANCELLED],
+          },
         },
       }),
       // Verified Accounts (Active)
@@ -111,6 +144,20 @@ export class AdminService {
           },
         },
       }),
+      // Recent Audit Logs
+      prisma.auditLog.findMany({
+        take: 6,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          actorUser: {
+            select: {
+              fullName: true,
+              email: true,
+              role: true,
+            },
+          },
+        },
+      }),
     ]);
 
     return {
@@ -118,9 +165,13 @@ export class AdminService {
         totalIndependentAgents,
         totalAgencies,
         totalAgencyMembers,
-        pendingAgentApprovals,
+        verifiedAgencies,
         pendingAgencyApprovals,
+        pendingAgentApprovals,
         pendingKycReviews,
+        pendingBankVerifications,
+        unassignedLeads,
+        activeReferralsCount,
         verifiedAccounts,
         suspendedAccounts,
       },
@@ -139,6 +190,16 @@ export class AdminService {
           : u.kycDocuments.some((d) => d.status === 'VERIFIED')
           ? 'VERIFIED'
           : 'INCOMPLETE',
+      })),
+      recentAuditLogs: recentAuditLogs.map((log) => ({
+        id: log.id,
+        action: log.action,
+        entityType: log.entityType,
+        entityId: log.entityId,
+        userName: log.actorUser?.fullName || 'System Event',
+        userRole: log.actorUser?.role || 'SYSTEM',
+        ipAddress: log.ipAddress,
+        createdAt: log.createdAt,
       })),
     };
   }

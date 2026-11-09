@@ -1,15 +1,22 @@
-import { User, Session, OtpChallenge, Role, AccountStatus, OtpPurpose } from '@prisma/client';
+import { User, Session, OtpChallenge, Role, AccountStatus, OtpPurpose, AgencyMember, Agency, AgentType } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import crypto from 'crypto';
 
+export type UserWithAgency = User & {
+  agencyMemberships?: (AgencyMember & { agency: Agency })[];
+};
+
 export type UserCreateInput = {
+  id?: string;
   email: string;
   passwordHash: string;
   fullName: string;
   phone?: string | null;
   companyName?: string | null;
   role: Role;
+  agentType?: AgentType;
   accountStatus: AccountStatus;
+  coordinatorId?: string | null;
 };
 
 export type OtpCreateInput = {
@@ -44,11 +51,12 @@ export interface IAuthRepository {
   invalidateActiveOtpChallenges(email: string, purpose: OtpPurpose): Promise<number>;
 
   createSession(data: SessionCreateInput): Promise<Session>;
-  findSessionByTokenHash(tokenHash: string): Promise<(Session & { user: User }) | null>;
+  findSessionByTokenHash(tokenHash: string): Promise<(Session & { user: UserWithAgency }) | null>;
   updateSession(id: string, data: Partial<Session>): Promise<Session>;
   revokeSession(id: string): Promise<Session>;
   revokeAllUserSessions(userId: string): Promise<number>;
   clearAll?(): void;
+  seedAgencyMembership?(userId: string, membership: AgencyMember & { agency: Agency }): void;
 }
 
 export class PrismaAuthRepository implements IAuthRepository {
@@ -135,10 +143,20 @@ export class PrismaAuthRepository implements IAuthRepository {
     return prisma.session.create({ data });
   }
 
-  async findSessionByTokenHash(tokenHash: string): Promise<(Session & { user: User }) | null> {
+  async findSessionByTokenHash(tokenHash: string): Promise<(Session & { user: UserWithAgency }) | null> {
     return prisma.session.findUnique({
       where: { tokenHash },
-      include: { user: true },
+      include: {
+        user: {
+          include: {
+            agencyMemberships: {
+              include: {
+                agency: true,
+              },
+            },
+          },
+        },
+      },
     });
   }
 
@@ -166,11 +184,19 @@ export class InMemoryAuthRepository implements IAuthRepository {
   private users: Map<string, User> = new Map();
   private sessions: Map<string, Session> = new Map();
   private otpChallenges: Map<string, OtpChallenge> = new Map();
+  private userAgencies: Map<string, (AgencyMember & { agency: Agency })[]> = new Map();
 
   clearAll(): void {
     this.users.clear();
     this.sessions.clear();
     this.otpChallenges.clear();
+    this.userAgencies.clear();
+  }
+
+  seedAgencyMembership(userId: string, membership: AgencyMember & { agency: Agency }): void {
+    const list = this.userAgencies.get(userId) ?? [];
+    list.push(membership);
+    this.userAgencies.set(userId, list);
   }
 
   async findUserByEmail(email: string): Promise<User | null> {
@@ -188,7 +214,7 @@ export class InMemoryAuthRepository implements IAuthRepository {
   }
 
   async createUser(data: UserCreateInput): Promise<User> {
-    const id = crypto.randomUUID();
+    const id = data.id ?? crypto.randomUUID();
     const now = new Date();
     const user: User = {
       id,
@@ -201,9 +227,9 @@ export class InMemoryAuthRepository implements IAuthRepository {
       brn: null,
       nationality: null,
       role: data.role,
-      agentType: 'INDEPENDENT',
+      agentType: data.agentType ?? 'INDEPENDENT',
       accountStatus: data.accountStatus,
-      coordinatorId: null,
+      coordinatorId: data.coordinatorId ?? null,
       companyName: data.companyName ?? null,
       referralCode: null,
       emailVerifiedAt: null,
@@ -341,14 +367,17 @@ export class InMemoryAuthRepository implements IAuthRepository {
     return { ...session };
   }
 
-  async findSessionByTokenHash(tokenHash: string): Promise<(Session & { user: User }) | null> {
+  async findSessionByTokenHash(tokenHash: string): Promise<(Session & { user: UserWithAgency }) | null> {
     for (const session of this.sessions.values()) {
       if (session.tokenHash === tokenHash) {
         const user = this.users.get(session.userId);
         if (!user) return null;
         return {
           ...session,
-          user: { ...user },
+          user: {
+            ...user,
+            agencyMemberships: this.userAgencies.get(user.id) ?? [],
+          },
         };
       }
     }

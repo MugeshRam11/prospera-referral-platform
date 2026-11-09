@@ -1,11 +1,28 @@
-import { Lead, LeadStatus, LeadStatusHistory, Service, User, Prisma } from '@prisma/client';
+import { Lead, LeadStatus, LeadStatusHistory, Service, User, Prisma, Agency, AgentType } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import crypto from 'crypto';
 
 export interface LeadWithDetails extends Lead {
-  partner?: { id: string; fullName: string; email: string; companyName: string | null };
+  partner?: {
+    id: string;
+    fullName: string;
+    email: string;
+    companyName: string | null;
+    agentType?: string | null;
+    agencyId?: string | null;
+    agencyName?: string | null;
+    agency?: { id: string; name: string } | null;
+  } | null;
   coordinator?: { id: string; fullName: string; email: string } | null;
-  agent?: { id: string; fullName: string; email: string } | null;
+  agent?: {
+    id: string;
+    fullName: string;
+    email: string;
+    agentType?: string | null;
+    agencyId?: string | null;
+    agencyName?: string | null;
+    agency?: { id: string; name: string } | null;
+  } | null;
   service?: { id: string; name: string; slug: string } | null;
   statusHistory?: LeadStatusHistoryWithUser[];
 }
@@ -18,6 +35,8 @@ export interface LeadFilterCriteria {
   partnerId?: string;
   coordinatorId?: string;
   agentId?: string;
+  agencyId?: string;
+  userId?: string;
   status?: LeadStatus;
   serviceId?: string;
   search?: string;
@@ -88,14 +107,114 @@ export interface IReferralRepository {
   transitionLeadStatus(id: string, transition: TransitionStatusRecordInput): Promise<LeadWithDetails>;
   assignLead(id: string, assignment: AssignLeadRecordInput): Promise<LeadWithDetails>;
   findServiceById(id: string): Promise<Service | null>;
+  listActiveServices(): Promise<Service[]>;
   findUserById(id: string): Promise<User | null>;
   getLeadStatusHistory(leadId: string): Promise<LeadStatusHistoryWithUser[]>;
   clearAll?(): void;
   seedService?(service: Partial<Service>): Service;
-  seedUser?(user: Partial<User>): User;
+  seedUser?(
+    user: Partial<User> & {
+      agencyId?: string | null;
+      agencyName?: string | null;
+      agency?: { id: string; name: string } | null;
+    }
+  ): User;
 }
 
 export class PrismaReferralRepository implements IReferralRepository {
+  private readonly leadInclude = {
+    partner: {
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        companyName: true,
+        agentType: true,
+        agencyMemberships: {
+          include: {
+            agency: { select: { id: true, name: true, legalName: true, status: true } },
+          },
+        },
+      },
+    },
+    coordinator: { select: { id: true, fullName: true, email: true } },
+    agent: {
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        agentType: true,
+        agencyMemberships: {
+          include: {
+            agency: { select: { id: true, name: true, legalName: true, status: true } },
+          },
+        },
+      },
+    },
+    service: { select: { id: true, name: true, slug: true } },
+    statusHistory: {
+      orderBy: { createdAt: 'desc' as const },
+      include: { changedBy: { select: { id: true, fullName: true, email: true, role: true } } },
+    },
+  };
+
+  private formatLead(
+    lead: Lead & {
+      partner?: {
+        id?: string;
+        fullName?: string;
+        email?: string;
+        companyName?: string | null;
+        agentType?: AgentType | null;
+        agencyMemberships?: { agencyId: string; agency?: Partial<Agency> | null }[];
+      } | null;
+      coordinator?: { id: string; fullName: string; email: string } | null;
+      agent?: {
+        id?: string;
+        fullName?: string;
+        email?: string;
+        agentType?: AgentType | null;
+        agencyMemberships?: { agencyId: string; agency?: Partial<Agency> | null }[];
+      } | null;
+      service?: { id: string; name: string; slug: string } | null;
+      statusHistory?: LeadStatusHistoryWithUser[];
+    }
+  ): LeadWithDetails {
+    if (!lead) return lead;
+    const partnerMembership = lead.partner?.agencyMemberships?.[0];
+    const agentMembership = lead.agent?.agencyMemberships?.[0];
+
+    return {
+      ...lead,
+      partner: lead.partner
+        ? {
+            id: lead.partner.id || '',
+            fullName: lead.partner.fullName || '',
+            email: lead.partner.email || '',
+            companyName: lead.partner.companyName ?? null,
+            agentType: lead.partner.agentType ?? null,
+            agencyId: partnerMembership?.agencyId ?? null,
+            agencyName: partnerMembership?.agency?.name ?? null,
+            agency: partnerMembership?.agency
+              ? { id: partnerMembership.agency.id || '', name: partnerMembership.agency.name || '' }
+              : null,
+          }
+        : (lead.partner === null ? null : undefined),
+      agent: lead.agent
+        ? {
+            id: lead.agent.id || '',
+            fullName: lead.agent.fullName || '',
+            email: lead.agent.email || '',
+            agentType: lead.agent.agentType ?? null,
+            agencyId: agentMembership?.agencyId ?? null,
+            agencyName: agentMembership?.agency?.name ?? null,
+            agency: agentMembership?.agency
+              ? { id: agentMembership.agency.id || '', name: agentMembership.agency.name || '' }
+              : null,
+          }
+        : (lead.agent === null ? null : undefined),
+    };
+  }
   async createLead(data: CreateLeadRecordInput): Promise<LeadWithDetails> {
     return prisma.$transaction(async (tx) => {
       const initialStatus = data.status ?? LeadStatus.SUBMITTED;
@@ -127,48 +246,29 @@ export class PrismaReferralRepository implements IReferralRepository {
         },
       });
 
-      return tx.lead.findUniqueOrThrow({
+      const fullLead = await tx.lead.findUniqueOrThrow({
         where: { id: createdLead.id },
-        include: {
-          partner: { select: { id: true, fullName: true, email: true, companyName: true } },
-          coordinator: { select: { id: true, fullName: true, email: true } },
-          agent: { select: { id: true, fullName: true, email: true } },
-          service: { select: { id: true, name: true, slug: true } },
-          statusHistory: {
-            orderBy: { createdAt: 'desc' },
-            include: { changedBy: { select: { id: true, fullName: true, email: true, role: true } } },
-          },
-        },
+        include: this.leadInclude,
       });
+
+      return this.formatLead(fullLead);
     });
   }
 
   async findLeadById(id: string): Promise<LeadWithDetails | null> {
-    return prisma.lead.findUnique({
+    const lead = await prisma.lead.findUnique({
       where: { id },
-      include: {
-        partner: { select: { id: true, fullName: true, email: true, companyName: true } },
-        coordinator: { select: { id: true, fullName: true, email: true } },
-        agent: { select: { id: true, fullName: true, email: true } },
-        service: { select: { id: true, name: true, slug: true } },
-        statusHistory: {
-          orderBy: { createdAt: 'desc' },
-          include: { changedBy: { select: { id: true, fullName: true, email: true, role: true } } },
-        },
-      },
+      include: this.leadInclude,
     });
+    return lead ? this.formatLead(lead) : null;
   }
 
   async findLeadByReferenceNo(referenceNo: string): Promise<LeadWithDetails | null> {
-    return prisma.lead.findUnique({
+    const lead = await prisma.lead.findUnique({
       where: { referenceNo },
-      include: {
-        partner: { select: { id: true, fullName: true, email: true, companyName: true } },
-        coordinator: { select: { id: true, fullName: true, email: true } },
-        agent: { select: { id: true, fullName: true, email: true } },
-        service: { select: { id: true, name: true, slug: true } },
-      },
+      include: this.leadInclude,
     });
+    return lead ? this.formatLead(lead) : null;
   }
 
   async listLeads(params: ListLeadsParams): Promise<{ items: LeadWithDetails[]; total: number }> {
@@ -182,6 +282,19 @@ export class PrismaReferralRepository implements IReferralRepository {
     }
     if (params.filter.agentId) {
       where.agentId = params.filter.agentId;
+    }
+    if (params.filter.userId) {
+      where.OR = [
+        { partnerId: params.filter.userId },
+        { agentId: params.filter.userId },
+      ];
+    }
+    if (params.filter.agencyId) {
+      where.partner = {
+        agencyMemberships: {
+          some: { agencyId: params.filter.agencyId },
+        },
+      };
     }
     if (params.filter.status) {
       where.status = params.filter.status;
@@ -205,23 +318,18 @@ export class PrismaReferralRepository implements IReferralRepository {
       [params.sortBy]: params.sortOrder,
     };
 
-    const [total, items] = await Promise.all([
+    const [total, rawItems] = await Promise.all([
       prisma.lead.count({ where }),
       prisma.lead.findMany({
         where,
         skip,
         take,
         orderBy,
-        include: {
-          partner: { select: { id: true, fullName: true, email: true, companyName: true } },
-          coordinator: { select: { id: true, fullName: true, email: true } },
-          agent: { select: { id: true, fullName: true, email: true } },
-          service: { select: { id: true, name: true, slug: true } },
-        },
+        include: this.leadInclude,
       }),
     ]);
 
-    return { items, total };
+    return { items: rawItems.map((l) => this.formatLead(l)), total };
   }
 
   async updateLead(id: string, data: UpdateLeadRecordInput): Promise<LeadWithDetails> {
@@ -239,20 +347,12 @@ export class PrismaReferralRepository implements IReferralRepository {
     }
     if (data.notes !== undefined) updateData.notes = data.notes;
 
-    return prisma.lead.update({
+    const updated = await prisma.lead.update({
       where: { id },
       data: updateData,
-      include: {
-        partner: { select: { id: true, fullName: true, email: true, companyName: true } },
-        coordinator: { select: { id: true, fullName: true, email: true } },
-        agent: { select: { id: true, fullName: true, email: true } },
-        service: { select: { id: true, name: true, slug: true } },
-        statusHistory: {
-          orderBy: { createdAt: 'desc' },
-          include: { changedBy: { select: { id: true, fullName: true, email: true, role: true } } },
-        },
-      },
+      include: this.leadInclude,
     });
+    return this.formatLead(updated);
   }
 
   async transitionLeadStatus(id: string, transition: TransitionStatusRecordInput): Promise<LeadWithDetails> {
@@ -291,19 +391,11 @@ export class PrismaReferralRepository implements IReferralRepository {
         },
       });
 
-      return tx.lead.findUniqueOrThrow({
+      const fullLead = await tx.lead.findUniqueOrThrow({
         where: { id },
-        include: {
-          partner: { select: { id: true, fullName: true, email: true, companyName: true } },
-          coordinator: { select: { id: true, fullName: true, email: true } },
-          agent: { select: { id: true, fullName: true, email: true } },
-          service: { select: { id: true, name: true, slug: true } },
-          statusHistory: {
-            orderBy: { createdAt: 'desc' },
-            include: { changedBy: { select: { id: true, fullName: true, email: true, role: true } } },
-          },
-        },
+        include: this.leadInclude,
       });
+      return this.formatLead(fullLead);
     });
   }
 
@@ -342,24 +434,27 @@ export class PrismaReferralRepository implements IReferralRepository {
         });
       }
 
-      return tx.lead.findUniqueOrThrow({
+      const fullLead = await tx.lead.findUniqueOrThrow({
         where: { id },
-        include: {
-          partner: { select: { id: true, fullName: true, email: true, companyName: true } },
-          coordinator: { select: { id: true, fullName: true, email: true } },
-          agent: { select: { id: true, fullName: true, email: true } },
-          service: { select: { id: true, name: true, slug: true } },
-          statusHistory: {
-            orderBy: { createdAt: 'desc' },
-            include: { changedBy: { select: { id: true, fullName: true, email: true, role: true } } },
-          },
-        },
+        include: this.leadInclude,
       });
+      return this.formatLead(fullLead);
     });
   }
 
   async findServiceById(id: string): Promise<Service | null> {
     return prisma.service.findUnique({ where: { id } });
+  }
+
+  async listActiveServices(): Promise<Service[]> {
+    return prisma.service.findMany({
+      where: { isActive: true },
+      include: {
+        category: true,
+        commissionRules: { where: { isActive: true } },
+      },
+      orderBy: { name: 'asc' },
+    });
   }
 
   async findUserById(id: string): Promise<User | null> {
@@ -382,12 +477,22 @@ export class InMemoryReferralRepository implements IReferralRepository {
   private history: Map<string, LeadStatusHistoryWithUser[]> = new Map();
   private services: Map<string, Service> = new Map();
   private users: Map<string, User> = new Map();
+  private userMeta: Map<
+    string,
+    {
+      agencyId?: string | null;
+      agencyName?: string | null;
+      agencyRole?: string | null;
+      agency?: { id: string; name: string } | null;
+    }
+  > = new Map();
 
   clearAll(): void {
     this.leads.clear();
     this.history.clear();
     this.services.clear();
     this.users.clear();
+    this.userMeta.clear();
   }
 
   seedService(data: Partial<Service>): Service {
@@ -408,7 +513,14 @@ export class InMemoryReferralRepository implements IReferralRepository {
     return service;
   }
 
-  seedUser(data: Partial<User>): User {
+  seedUser(
+    data: Partial<User> & {
+      agencyId?: string | null;
+      agencyName?: string | null;
+      agencyRole?: string | null;
+      agency?: { id: string; name: string } | null;
+    }
+  ): User {
     const id = data.id ?? crypto.randomUUID();
     const user: User = {
       id,
@@ -435,11 +547,21 @@ export class InMemoryReferralRepository implements IReferralRepository {
       updatedAt: new Date(),
     };
     this.users.set(id, user);
+    this.userMeta.set(id, {
+      agencyId: data.agencyId ?? null,
+      agencyName: data.agencyName ?? data.agency?.name ?? null,
+      agencyRole: data.agencyRole ?? null,
+      agency: data.agency ?? (data.agencyId ? { id: data.agencyId, name: data.agencyName ?? 'Agency' } : null),
+    });
     return user;
   }
 
   async findServiceById(id: string): Promise<Service | null> {
     return this.services.get(id) ?? null;
+  }
+
+  async listActiveServices(): Promise<Service[]> {
+    return Array.from(this.services.values()).filter((s) => s.isActive);
   }
 
   async findUserById(id: string): Promise<User | null> {
@@ -525,6 +647,15 @@ export class InMemoryReferralRepository implements IReferralRepository {
     }
     if (params.filter.agentId) {
       list = list.filter((l) => l.agentId === params.filter.agentId);
+    }
+    if (params.filter.userId) {
+      list = list.filter((l) => l.partnerId === params.filter.userId || l.agentId === params.filter.userId);
+    }
+    if (params.filter.agencyId) {
+      list = list.filter((l) => {
+        const meta = this.userMeta.get(l.partnerId);
+        return meta?.agencyId === params.filter.agencyId || meta?.agency?.id === params.filter.agencyId;
+      });
     }
     if (params.filter.status) {
       list = list.filter((l) => l.status === params.filter.status);
@@ -687,6 +818,8 @@ export class InMemoryReferralRepository implements IReferralRepository {
     const agent = lead.agentId ? this.users.get(lead.agentId) : null;
     const service = this.services.get(lead.serviceId);
     const history = this.history.get(lead.id) ?? [];
+    const partnerMeta = partner ? this.userMeta.get(partner.id) : undefined;
+    const agentMeta = agent ? this.userMeta.get(agent.id) : undefined;
 
     return {
       ...lead,
@@ -696,6 +829,10 @@ export class InMemoryReferralRepository implements IReferralRepository {
             fullName: partner.fullName,
             email: partner.email,
             companyName: partner.companyName,
+            agentType: partner.agentType,
+            agencyId: partnerMeta?.agencyId ?? null,
+            agencyName: partnerMeta?.agencyName ?? partnerMeta?.agency?.name ?? null,
+            agency: partnerMeta?.agency ?? (partnerMeta?.agencyId ? { id: partnerMeta.agencyId, name: partnerMeta.agencyName ?? 'Agency' } : null),
           }
         : undefined,
       coordinator: coordinator
@@ -710,6 +847,10 @@ export class InMemoryReferralRepository implements IReferralRepository {
             id: agent.id,
             fullName: agent.fullName,
             email: agent.email,
+            agentType: agent.agentType,
+            agencyId: agentMeta?.agencyId ?? null,
+            agencyName: agentMeta?.agencyName ?? agentMeta?.agency?.name ?? null,
+            agency: agentMeta?.agency ?? (agentMeta?.agencyId ? { id: agentMeta.agencyId, name: agentMeta.agencyName ?? 'Agency' } : null),
           }
         : null,
       service: service

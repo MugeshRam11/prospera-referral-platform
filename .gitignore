@@ -18,6 +18,7 @@ secrets/
 .secrets/
 .dev-admin-credentials.json
 .dev-demo-personas.json
+.dev-demo-password-backup.json
 
 # Build output
 dist/

@@ -101,6 +101,7 @@ export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
       <div className="lg:pl-64 flex flex-col min-h-screen">
         <Header
           user={user}
+          withdrawableBalance={withdrawableBalance}
           onOpenNewReferralModal={() => setIsCreateModalOpen(true)}
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           onSearch={(q) => {

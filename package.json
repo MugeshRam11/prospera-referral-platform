@@ -16,7 +16,9 @@
     "migrate:deploy": "prisma migrate deploy",
     "migrate:status": "prisma migrate status",
     "seed:admin": "tsx scripts/bootstrap-admin.ts",
-    "seed:demo": "tsx scripts/seed-demo-users.ts"
+    "seed:demo": "tsx scripts/seed-demo-users.ts",
+    "demo:temp-password": "tsx scripts/set-demo-temp-password.ts",
+    "demo:restore-passwords": "tsx scripts/restore-demo-passwords.ts"
   },
   "keywords": [
     "prospera",

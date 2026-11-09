@@ -18,11 +18,18 @@ import {
 const router = Router();
 const controller = new ReferralController();
 
-// 1. Create a referral/lead (Partners, Coordinators, Admins)
+// 1. Get active services catalog (must precede /:id)
+router.get(
+  '/services',
+  authenticate,
+  controller.getServices
+);
+
+// 2. Create a referral/lead (Partners, Agents, Admins)
 router.post(
   '/',
   authenticate,
-  authorize([Role.REFERRAL_PARTNER, Role.COORDINATOR, Role.ADMIN]),
+  authorize([Role.REFERRAL_PARTNER, Role.AGENT, Role.ADMIN]),
   validateBody(createReferralSchema),
   controller.create
 );

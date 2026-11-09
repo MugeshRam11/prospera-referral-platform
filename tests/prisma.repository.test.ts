@@ -201,14 +201,24 @@ describe('PrismaAuthRepository (Isolated Mocked Delegate Tests - SEC-07)', () =>
       expect(result.id).toBe('s-1');
     });
 
-    it('findSessionByTokenHash should query by tokenHash and include user relation', async () => {
+    it('findSessionByTokenHash should query by tokenHash and include user and agency relation', async () => {
       prismaMock.session.findUnique.mockResolvedValue({ id: 's-1', user: { id: 'u-1' } });
 
       await repository.findSessionByTokenHash('hashed-token');
 
       expect(prismaMock.session.findUnique).toHaveBeenCalledWith({
         where: { tokenHash: 'hashed-token' },
-        include: { user: true },
+        include: {
+          user: {
+            include: {
+              agencyMemberships: {
+                include: {
+                  agency: true,
+                },
+              },
+            },
+          },
+        },
       });
     });
 

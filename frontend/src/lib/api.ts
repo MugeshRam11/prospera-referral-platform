@@ -22,6 +22,7 @@ import {
   AdminCoordinatorItem,
   AdminReferralPartnerItem,
   AdminDemoPersonaItem,
+  AdminRecentAuditLog,
 } from '../types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
@@ -168,7 +169,8 @@ export class ApiClient {
   }
 
   public static async getMe(): Promise<UserSummary> {
-    const user = await this.request<UserSummary>('/auth/me');
+    const res = await this.request<{ user: UserSummary; session: unknown } | UserSummary>('/auth/me');
+    const user: UserSummary = (res as any)?.user ? (res as any).user : (res as UserSummary);
     if (user) {
       this.setStoredUser(user);
     }
@@ -383,10 +385,12 @@ export class ApiClient {
   public static async getAdminOverview(): Promise<{
     metrics: AdminOverviewMetrics;
     recentApplications: AdminRecentApplication[];
+    recentAuditLogs?: AdminRecentAuditLog[];
   }> {
     return await this.request<{
       metrics: AdminOverviewMetrics;
       recentApplications: AdminRecentApplication[];
+      recentAuditLogs?: AdminRecentAuditLog[];
     }>('/admin/overview');
   }
 
@@ -771,6 +775,7 @@ export class ApiClient {
     expectedDealValue: number;
     currency?: string;
     notes?: string;
+    asDraft?: boolean;
   }): Promise<LeadItem> {
     return await this.request<LeadItem>('/referrals', {
       method: 'POST',
@@ -835,49 +840,8 @@ export class ApiClient {
   }
 
   public static async getServices(): Promise<ServiceItem[]> {
-    try {
-      const res = await this.request<ServiceItem[]>('/referrals/services');
-      return res || [];
-    } catch {
-      return [
-        {
-          id: 'srv-1',
-          slug: 'property-sales',
-          name: 'UAE Luxury Real Estate',
-          description: 'High-yield residential, waterfront villas and off-plan investments.',
-          defaultPartnerCommissionBps: 200,
-          defaultAgentCommissionBps: 150,
-          isActive: true,
-        },
-        {
-          id: 'srv-2',
-          slug: 'mortgage-brokerage',
-          name: 'Mortgage Advisory',
-          description: 'Resident and non-resident home financing with Tier-1 UAE lenders.',
-          defaultPartnerCommissionBps: 75,
-          defaultAgentCommissionBps: 50,
-          isActive: true,
-        },
-        {
-          id: 'srv-3',
-          slug: 'golden-visa',
-          name: 'UAE Golden Visa',
-          description: '10-Year residency for investors, entrepreneurs, and skilled professionals.',
-          defaultPartnerCommissionBps: 300,
-          defaultAgentCommissionBps: 200,
-          isActive: true,
-        },
-        {
-          id: 'srv-4',
-          slug: 'corporate-advisory',
-          name: 'Corporate Structuring & M&A',
-          description: 'Freezone/Mainland company formation and DIFC holding structures.',
-          defaultPartnerCommissionBps: 150,
-          defaultAgentCommissionBps: 100,
-          isActive: true,
-        },
-      ];
-    }
+    const res = await this.request<ServiceItem[]>('/referrals/services');
+    return res || [];
   }
 
   public static async getCommissions(): Promise<CommissionEntry[]> {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -14,142 +14,178 @@ import {
   ArrowLeft,
   CheckCircle2,
   AlertCircle,
-  HelpCircle,
   ShieldCheck,
-  Phone,
-  Mail,
   User,
-  MapPin,
   DollarSign,
-  FileText,
   Clock,
-  Sparkles,
+  RotateCcw,
+  Save,
+  Check,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ApiClient } from '@/lib/api';
 import { formatAED } from '@/lib/utils';
-import { LeadItem } from '@/types';
+import { LeadItem, ServiceItem } from '@/types';
 
-// The 6 Supported Service Categories
-const SERVICE_CATEGORIES = [
-  {
-    id: 'property',
-    serviceId: '11111111-2222-3333-4444-555555555555',
-    title: 'Property & Real Estate',
-    category: 'Real Estate',
-    icon: Home,
-    badge: 'High Commission',
-    commissionRate: 1.5,
-    description: 'Prime residential acquisitions, luxury penthouses, commercial freehold, and high-yield off-plan developments.',
-    defaultDealValue: 1500000,
-  },
-  {
-    id: 'mortgage',
-    serviceId: '11111111-2222-3333-4444-555555555556',
-    title: 'Mortgage & Home Financing',
-    category: 'Financing',
-    icon: CreditCard,
-    badge: 'Fast Track',
-    commissionRate: 1.0,
-    description: 'UAE resident & non-resident property loans, refinance options, and competitive interest rate advisory.',
-    defaultDealValue: 1200000,
-  },
-  {
-    id: 'golden-visa',
-    serviceId: '11111111-2222-3333-4444-555555555553',
-    title: 'UAE Golden Visa & Residency',
-    category: 'Immigration',
-    icon: Award,
-    badge: 'Popular',
-    commissionRate: 2.0,
-    description: '10-Year investor visa processing for property buyers (AED 2M+), entrepreneurs, and specialized talents.',
-    defaultDealValue: 95000,
-  },
-  {
-    id: 'corporate-advisory',
-    serviceId: '11111111-2222-3333-4444-555555555554',
-    title: 'Corporate Advisory & SPVs',
-    category: 'Corporate',
-    icon: Briefcase,
-    badge: 'Institutional',
-    commissionRate: 3.5,
-    description: 'DIFC and ADGM SPV asset protection vehicles, cross-border holding structures, and legal entity setup.',
-    defaultDealValue: 350000,
-  },
-  {
-    id: 'bank-account',
-    serviceId: '11111111-2222-3333-4444-555555555551',
-    title: 'Corporate Bank Account Opening',
-    category: 'Banking',
-    icon: Landmark,
-    badge: 'Tier-1 Banks',
-    commissionRate: 2.5,
-    description: 'Guaranteed corporate banking facilitation with Emirates NBD, First Abu Dhabi Bank (FAB), Mashreq, and Wio.',
-    defaultDealValue: 185000,
-  },
-  {
-    id: 'company-formation',
-    serviceId: '11111111-2222-3333-4444-555555555552',
-    title: 'Company Formation & Licensing',
-    category: 'Licensing',
+// Helper to determine presentation metadata based on active service slug
+function getServicePresentation(service: ServiceItem) {
+  const slug = service.slug.toLowerCase();
+  if (slug.includes('real-estate') || slug.includes('property')) {
+    return {
+      categoryKey: 'property',
+      icon: Home,
+      badge: 'Prime Real Estate',
+      categoryLabel: 'Real Estate',
+      defaultDealValue: 1500000,
+    };
+  }
+  if (slug.includes('mortgage')) {
+    return {
+      categoryKey: 'mortgage',
+      icon: CreditCard,
+      badge: 'Home Financing',
+      categoryLabel: 'Financing',
+      defaultDealValue: 1200000,
+    };
+  }
+  if (slug.includes('visa') || slug.includes('golden')) {
+    return {
+      categoryKey: 'golden-visa',
+      icon: Award,
+      badge: 'Residency Advisory',
+      categoryLabel: 'Immigration',
+      defaultDealValue: 100000,
+    };
+  }
+  if (slug.includes('advisory') || slug.includes('spv') || slug.includes('corporate')) {
+    return {
+      categoryKey: 'corporate-advisory',
+      icon: Briefcase,
+      badge: 'Corporate Structuring',
+      categoryLabel: 'Corporate',
+      defaultDealValue: 350000,
+    };
+  }
+  if (slug.includes('bank') || slug.includes('account')) {
+    return {
+      categoryKey: 'bank-account',
+      icon: Landmark,
+      badge: 'Commercial Banking',
+      categoryLabel: 'Banking',
+      defaultDealValue: 150000,
+    };
+  }
+  return {
+    categoryKey: 'company-formation',
     icon: Building2,
-    badge: '100% Foreign Owned',
-    commissionRate: 3.0,
-    description: 'Dubai Mainland LLC (DET) incorporation, Free Zone licensing (DMCC, IFZA, DAFZA), and trade permits.',
-    defaultDealValue: 145000,
-  },
-];
+    badge: 'Entity Setup',
+    categoryLabel: 'Licensing',
+    defaultDealValue: 120000,
+  };
+}
+
+const INITIAL_FORM_STATE = {
+  // Step 1: Selected Service ID (Populated from live database services)
+  selectedServiceId: '',
+  // Step 2: Client Contact & Consent
+  clientName: '',
+  clientPhone: '',
+  clientEmail: '',
+  preferredContact: 'phone',
+  countryResidence: 'United Arab Emirates',
+  clientConsent: false,
+  // Step 3: Scoped Specifications
+  propertyType: 'Luxury Waterfront Villa',
+  propertyLocation: 'Palm Jumeirah',
+  mortgageType: 'UAE Resident Ready Property Mortgage',
+  goldenVisaCategory: 'Real Estate Investor (AED 2M+ Equity)',
+  advisoryScope: 'DIFC / ADGM SPV Asset Protection Foundation',
+  bankingPreference: 'Emirates NBD',
+  formationJurisdiction: 'Dubai Mainland (DET 100% Foreign Owned)',
+  // Step 4: Opportunity Scope & Commercial Value
+  dealValue: '1500000',
+  closingTimeline: 'Within 30 Days',
+  notes: '',
+};
 
 export default function NewReferralWizardPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isSavingDraft, setIsSavingDraft] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [draftSavedMsg, setDraftSavedMsg] = useState<string | null>(null);
   const [submittedLead, setSubmittedLead] = useState<LeadItem | null>(null);
 
-  // Form State
-  const [formData, setFormData] = useState({
-    // Step 1: Service
-    selectedCategoryId: 'property',
-    // Step 2: Client Contact
-    clientName: '',
-    clientPhone: '',
-    clientEmail: '',
-    preferredContact: 'phone',
-    countryResidence: 'United Arab Emirates',
-    // Step 3: Conditional Service Fields
-    dealValue: '1500000',
-    propertyType: 'Luxury Villa / Penthouse',
-    propertyLocation: 'Palm Jumeirah',
-    mortgageType: 'Ready Property Purchase',
-    goldenVisaCategory: 'Real Estate Investor (AED 2M+)',
-    advisoryScope: 'DIFC / ADGM SPV Asset Protection',
-    bankingPreference: 'Emirates NBD',
-    formationJurisdiction: 'Dubai Mainland (DET)',
-    notes: '',
-    // Step 4: Consent
-    clientConsent: false,
-  });
+  // Live Backend Data
+  const [services, setServices] = useState<ServiceItem[]>([]);
+  const [existingReferrals, setExistingReferrals] = useState<LeadItem[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isLoadingServices, setIsLoadingServices] = useState<boolean>(true);
 
-  const selectedService =
-    SERVICE_CATEGORIES.find((s) => s.id === formData.selectedCategoryId) ||
-    SERVICE_CATEGORIES[0];
+  // Form State
+  const [formData, setFormData] = useState(INITIAL_FORM_STATE);
+
+  // Load real services and existing referrals directly from approved backend APIs
+  useEffect(() => {
+    setIsLoadingServices(true);
+    Promise.all([ApiClient.getServices(), ApiClient.getReferrals(), ApiClient.getMe()])
+      .then(([sList, rList, u]) => {
+        setCurrentUser(u);
+        if (sList && sList.length > 0) {
+          setServices(sList);
+          setFormData((prev) => ({
+            ...prev,
+            selectedServiceId: prev.selectedServiceId || sList[0].id,
+            dealValue: prev.dealValue || String(getServicePresentation(sList[0]).defaultDealValue),
+          }));
+        }
+        if (rList && rList.length > 0) {
+          setExistingReferrals(rList);
+        }
+      })
+      .catch((err) => {
+        setErrorMsg(err instanceof Error ? err.message : 'Unable to load service catalog');
+      })
+      .finally(() => {
+        setIsLoadingServices(false);
+      });
+  }, []);
+
+  const selectedService = React.useMemo(() => {
+    if (services.length === 0) return null;
+    return services.find((s) => s.id === formData.selectedServiceId) || services[0];
+  }, [services, formData.selectedServiceId]);
+
+  const servicePresentation = React.useMemo(() => {
+    if (!selectedService) return null;
+    return getServicePresentation(selectedService);
+  }, [selectedService]);
 
   const dealValueNum = parseFloat(formData.dealValue) || 0;
-  const estimatedCommission =
-    (dealValueNum * selectedService.commissionRate) / 100;
+  // Derive commission rate strictly from approved backend basis points (100 bps = 1.00%)
+  const partnerRatePercent = (selectedService?.defaultPartnerCommissionBps ?? 150) / 100;
+  const estimatedCommission = (dealValueNum * partnerRatePercent) / 100;
+
+  // Duplicate pre-check based on active leads in user pipeline
+  const potentialDuplicate = React.useMemo(() => {
+    if (!formData.clientPhone.trim() && !formData.clientName.trim()) return null;
+    return existingReferrals.find(
+      (r) =>
+        (formData.clientPhone.trim() && r.clientPhone === formData.clientPhone.trim()) ||
+        (formData.clientName.trim() && r.clientName.toLowerCase() === formData.clientName.trim().toLowerCase())
+    );
+  }, [existingReferrals, formData.clientPhone, formData.clientName]);
 
   // Validation per step
   const validateStep = (step: number): boolean => {
     setErrorMsg(null);
     if (step === 1) {
-      if (!formData.selectedCategoryId) {
-        setErrorMsg('Please select a service category to continue.');
+      if (!formData.selectedServiceId) {
+        setErrorMsg('Please select an active service offering to continue.');
         return false;
       }
       return true;
@@ -170,18 +206,18 @@ export default function NewReferralWizardPage() {
           return false;
         }
       }
-      return true;
-    }
-    if (step === 3) {
-      if (dealValueNum <= 0) {
-        setErrorMsg('Estimated deal value must be greater than zero.');
+      if (!formData.clientConsent) {
+        setErrorMsg('Client consent is mandatory under UAE Personal Data Protection Law (PDPL). Please confirm express consent.');
         return false;
       }
       return true;
     }
+    if (step === 3) {
+      return true;
+    }
     if (step === 4) {
-      if (!formData.clientConsent) {
-        setErrorMsg('You must confirm that you have client consent to submit this referral.');
+      if (dealValueNum <= 0) {
+        setErrorMsg('Estimated deal value must be greater than zero.');
         return false;
       }
       return true;
@@ -191,57 +227,99 @@ export default function NewReferralWizardPage() {
 
   const handleNext = () => {
     if (validateStep(currentStep)) {
-      setCurrentStep((prev) => prev + 1);
+      setErrorMsg(null);
+      setDraftSavedMsg(null);
+      setCurrentStep((prev) => Math.min(6, prev + 1));
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handleBack = () => {
     setErrorMsg(null);
+    setDraftSavedMsg(null);
     setCurrentStep((prev) => Math.max(1, prev - 1));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSubmit = async () => {
-    if (!validateStep(4)) return;
+  // Compile structured notes including scoped specifications and legal PDPL consent metadata
+  const buildContextNote = () => {
+    const consentTimestamp = new Date().toISOString();
+    let note = `[Service: ${selectedService?.name || 'Advisory'}]\n`;
 
+    const catKey = servicePresentation?.categoryKey;
+    if (catKey === 'property') {
+      note += `Property Type: ${formData.propertyType}\nLocation: ${formData.propertyLocation}\n`;
+    } else if (catKey === 'mortgage') {
+      note += `Financing Type: ${formData.mortgageType}\n`;
+    } else if (catKey === 'golden-visa') {
+      note += `Residency Category: ${formData.goldenVisaCategory}\n`;
+    } else if (catKey === 'corporate-advisory') {
+      note += `Advisory Scope: ${formData.advisoryScope}\n`;
+    } else if (catKey === 'bank-account') {
+      note += `Preferred Bank: ${formData.bankingPreference}\n`;
+    } else if (catKey === 'company-formation') {
+      note += `Jurisdiction: ${formData.formationJurisdiction}\n`;
+    }
+
+    note += `Preferred Contact: ${formData.preferredContact}\nCountry of Residence: ${formData.countryResidence}\nTimeline: ${formData.closingTimeline}\n`;
+    note += `[UAE PDPL Consent: Confirmed by Partner on ${consentTimestamp} | Legal Basis: UAE Federal Decree-Law No. 45/2021]\n`;
+
+    if (formData.notes.trim()) {
+      note += `Partner Notes: ${formData.notes.trim()}`;
+    }
+    return note;
+  };
+
+  // Save authenticated server-side draft (PostgreSQL Lead with status DRAFT)
+  const handleSaveServerDraft = async () => {
+    if (!formData.clientName.trim() || !formData.clientPhone.trim()) {
+      setErrorMsg('Please provide at least client name and phone number to save a server draft.');
+      return;
+    }
+    if (!selectedService) return;
+
+    setIsSavingDraft(true);
+    setErrorMsg(null);
+    try {
+      const draft = await ApiClient.createReferral({
+        serviceId: selectedService.id,
+        clientName: formData.clientName.trim(),
+        clientPhone: formData.clientPhone.trim(),
+        clientEmail: formData.clientEmail.trim() || undefined,
+        expectedDealValue: dealValueNum || 10000,
+        currency: 'AED',
+        notes: buildContextNote(),
+        asDraft: true,
+      });
+
+      setDraftSavedMsg(`Draft reference ${draft.referenceNo} securely saved to your account. You can complete and submit it anytime from your referrals desk.`);
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to save server draft.');
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
+  // Final submission of referral
+  const handleSubmit = async () => {
+    if (!selectedService) return;
     setIsSubmitting(true);
     setErrorMsg(null);
 
-    // Compile comprehensive notes incorporating conditional service requirements
-    let contextNote = `[Service: ${selectedService.title}]\n`;
-    if (formData.selectedCategoryId === 'property') {
-      contextNote += `Property Type: ${formData.propertyType}\nLocation: ${formData.propertyLocation}\n`;
-    } else if (formData.selectedCategoryId === 'mortgage') {
-      contextNote += `Financing Type: ${formData.mortgageType}\n`;
-    } else if (formData.selectedCategoryId === 'golden-visa') {
-      contextNote += `Category: ${formData.goldenVisaCategory}\n`;
-    } else if (formData.selectedCategoryId === 'corporate-advisory') {
-      contextNote += `Advisory Scope: ${formData.advisoryScope}\n`;
-    } else if (formData.selectedCategoryId === 'bank-account') {
-      contextNote += `Preferred Bank: ${formData.bankingPreference}\n`;
-    } else if (formData.selectedCategoryId === 'company-formation') {
-      contextNote += `Jurisdiction: ${formData.formationJurisdiction}\n`;
-    }
-
-    contextNote += `Preferred Contact: ${formData.preferredContact}\nCountry: ${formData.countryResidence}\n`;
-    if (formData.notes.trim()) {
-      contextNote += `Partner Notes: ${formData.notes.trim()}`;
-    }
-
     try {
       const created = await ApiClient.createReferral({
-        serviceId: selectedService.serviceId,
+        serviceId: selectedService.id,
         clientName: formData.clientName.trim(),
         clientPhone: formData.clientPhone.trim(),
         clientEmail: formData.clientEmail.trim() || undefined,
         expectedDealValue: dealValueNum,
         currency: 'AED',
-        notes: contextNote,
+        notes: buildContextNote(),
+        asDraft: false,
       });
 
       setSubmittedLead(created);
-      setCurrentStep(5);
+      setCurrentStep(6);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to submit referral. Please try again.';
       setErrorMsg(msg);
@@ -250,590 +328,620 @@ export default function NewReferralWizardPage() {
     }
   };
 
+  const stepsLabel = [
+    'Service Selection',
+    'Client Details & Consent',
+    'Service Specifications',
+    'Opportunity & Timeline',
+    'Review & Duplicate Check',
+    'Submitted & Tracking',
+  ];
+
   return (
-    <div className="max-w-4xl mx-auto py-4">
+    <div className="max-w-4xl mx-auto py-4 pb-16">
       {/* Top Header */}
       <div className="mb-6">
         <Link
           href="/referrals"
-          className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors mb-2"
+          className="inline-flex items-center text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors mb-2"
         >
-          <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to My Referrals
+          <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Back to Referrals Pipeline
         </Link>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-          New Referral Submission Wizard
-        </h1>
-        <p className="text-slate-500 text-sm mt-1">
-          Complete the guided steps below to refer a client to Prospera’s verified advisory desks.
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              Guided Referral Submission Wizard
+            </h1>
+            <p className="text-slate-500 text-xs sm:text-sm mt-1">
+              Follow the six verified stages to submit a high-value opportunity to Prospera desks.
+            </p>
+          </div>
+
+          {currentStep >= 2 && currentStep <= 5 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleSaveServerDraft}
+              disabled={isSavingDraft}
+              className="text-xs font-semibold text-slate-700 border-slate-200 bg-white hover:bg-slate-50 flex items-center gap-1.5 self-start sm:self-auto shadow-xs"
+            >
+              <Save size={13} className="text-blue-600" />
+              <span>{isSavingDraft ? 'Saving Draft...' : 'Save Server Draft'}</span>
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Progress Indicator (Steps 1 to 4) */}
-      {currentStep <= 4 && (
-        <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 mb-8 shadow-sm">
+      {/* Agent Role Guidance */}
+      {currentUser?.role === 'AGENT' && (
+        <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-2">
+          <div className="flex items-center gap-2 font-bold">
+            <AlertCircle size={15} className="text-amber-600 flex-shrink-0" />
+            <span>Broker Guidance: Referral Intake Protocol</span>
+          </div>
+          <p className="text-amber-800 leading-relaxed">
+            As a licensed Sales Agent, client referrals are routed to you by Lead Coordinators. New referral intake is submitted by registered Referral Partners. You can review and progress your active assigned deals directly in your personal pipeline.
+          </p>
+          <div className="pt-1">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-xl text-[11px] shadow-xs"
+            >
+              <span>Open Broker Workspace</span>
+              <ArrowRight size={12} />
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Progress Indicator (Steps 1 to 5) */}
+      {currentStep <= 5 && (
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 mb-8 shadow-xs">
           <div className="flex justify-between items-center mb-3">
             <span className="text-xs font-bold uppercase tracking-wider text-blue-600">
-              Step {currentStep} of 4: {
-                currentStep === 1
-                  ? 'Select Advisory Service'
-                  : currentStep === 2
-                  ? 'Client Contact Details'
-                  : currentStep === 3
-                  ? 'Service Specifications'
-                  : 'Review & Partner Consent'
-              }
+              Stage {currentStep} of 6: {stepsLabel[currentStep - 1]}
             </span>
             <span className="text-xs font-semibold text-slate-500">
-              {Math.round((currentStep / 4) * 100)}% Completed
+              {Math.round((currentStep / 6) * 100)}% Completed
             </span>
           </div>
-          <Progress value={(currentStep / 4) * 100} className="h-2" />
+          <Progress value={(currentStep / 6) * 100} className="h-2" />
 
           {/* Step Pills */}
-          <div className="grid grid-cols-4 gap-2 mt-4 text-center">
-            <div className={`text-xs font-medium ${currentStep >= 1 ? 'text-blue-600 font-semibold' : 'text-slate-400'}`}>
-              1. Service
-            </div>
-            <div className={`text-xs font-medium ${currentStep >= 2 ? 'text-blue-600 font-semibold' : 'text-slate-400'}`}>
-              2. Client
-            </div>
-            <div className={`text-xs font-medium ${currentStep >= 3 ? 'text-blue-600 font-semibold' : 'text-slate-400'}`}>
-              3. Requirements
-            </div>
-            <div className={`text-xs font-medium ${currentStep >= 4 ? 'text-blue-600 font-semibold' : 'text-slate-400'}`}>
-              4. Review
-            </div>
+          <div className="grid grid-cols-5 gap-1.5 mt-3 text-center">
+            {stepsLabel.slice(0, 5).map((label, idx) => (
+              <div
+                key={idx}
+                className={`text-[11px] font-medium truncate ${
+                  currentStep === idx + 1
+                    ? 'text-blue-600 font-bold border-b-2 border-blue-600 pb-1'
+                    : currentStep > idx + 1
+                    ? 'text-emerald-600 font-semibold'
+                    : 'text-slate-400'
+                }`}
+                title={label}
+              >
+                {idx + 1}. {label.split(' ')[0]}
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Error Alert */}
+      {/* Alerts */}
+      {draftSavedMsg && (
+        <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+          <Check className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+          <span>{draftSavedMsg}</span>
+        </div>
+      )}
+
       {errorMsg && (
-        <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 flex items-start gap-3 text-red-700 text-sm">
-          <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-600" />
-          <div>
-            <strong className="font-semibold">Action Required: </strong>
-            {errorMsg}
-          </div>
+        <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+          <span>{errorMsg}</span>
         </div>
       )}
 
-      {/* STEP 1: Select Service Category */}
+      {/* STAGE 1: Service Selection */}
       {currentStep === 1 && (
         <div className="space-y-6">
-          <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900 mb-1">
-              Select Advisory Category
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs">
+            <h2 className="text-base font-bold text-slate-900 mb-1">
+              Select Advisory Service Offering
             </h2>
-            <p className="text-sm text-slate-500 mb-6">
-              Choose the primary domain of assistance your client requires.
+            <p className="text-xs text-slate-500 mb-5">
+              Choose from active approved catalog services. Commission percentages are derived strictly from platform rules.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {SERVICE_CATEGORIES.map((cat) => {
-                const Icon = cat.icon;
-                const isSelected = formData.selectedCategoryId === cat.id;
-                return (
-                  <div
-                    key={cat.id}
-                    onClick={() => {
-                      setFormData({
-                        ...formData,
-                        selectedCategoryId: cat.id,
-                        dealValue: cat.defaultDealValue.toString(),
-                      });
-                    }}
-                    className={`cursor-pointer border-2 rounded-xl p-5 transition-all flex flex-col justify-between ${
-                      isSelected
-                        ? 'border-blue-600 bg-blue-50/40 shadow-md ring-2 ring-blue-600/20'
-                        : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <div
-                          className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                            isSelected
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          <Icon className="w-5 h-5" />
-                        </div>
-                        <Badge
-                          variant={isSelected ? 'default' : 'secondary'}
-                          className="text-[11px]"
-                        >
-                          {cat.commissionRate}% Partner Tier
-                        </Badge>
-                      </div>
-                      <h3 className="font-bold text-slate-900 text-base mb-1">
-                        {cat.title}
-                      </h3>
-                      <p className="text-xs text-slate-500 leading-relaxed">
-                        {cat.description}
-                      </p>
-                    </div>
+            {isLoadingServices ? (
+              <div className="p-8 text-center text-xs text-slate-500">
+                Loading approved service catalog...
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {services.map((srv) => {
+                  const pres = getServicePresentation(srv);
+                  const Icon = pres.icon;
+                  const isSelected = formData.selectedServiceId === srv.id;
+                  const partnerRate = (srv.defaultPartnerCommissionBps / 100).toFixed(2);
 
-                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                      <span className="text-slate-500 font-medium">Standard Deal Range:</span>
-                      <strong className="text-slate-800">
-                        {formatAED(cat.defaultDealValue)}
-                      </strong>
+                  return (
+                    <div
+                      key={srv.id}
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          selectedServiceId: srv.id,
+                          dealValue: prev.dealValue || String(pres.defaultDealValue),
+                        }))
+                      }
+                      className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+                        isSelected
+                          ? 'border-blue-600 bg-blue-50/50 shadow-sm'
+                          : 'border-slate-200/80 hover:border-slate-300 bg-white'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <div
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                              isSelected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-700'
+                            }`}
+                          >
+                            <Icon size={20} />
+                          </div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                            {partnerRate}% Standard BPS
+                          </span>
+                        </div>
+
+                        <h3 className="font-bold text-sm text-slate-900">{srv.name}</h3>
+                        <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                          {srv.description || 'Institutional facilitation across UAE jurisdictions.'}
+                        </p>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+                        <span>{pres.categoryLabel}</span>
+                        <span className="font-semibold text-blue-600">
+                          {isSelected ? '✓ Selected' : 'Select'}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end">
-            <Button onClick={handleNext} size="lg" className="px-8 font-bold">
-              Continue to Client Details <ArrowRight className="w-4 h-4 ml-2" />
+            <Button
+              onClick={handleNext}
+              disabled={isLoadingServices || !selectedService}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-5 py-2.5 rounded-xl shadow-xs"
+            >
+              <span>Continue to Client Details</span>
+              <ArrowRight size={14} className="ml-1.5" />
             </Button>
           </div>
         </div>
       )}
 
-      {/* STEP 2: Client Contact Information */}
+      {/* STAGE 2: Client Details & Consent */}
       {currentStep === 2 && (
         <div className="space-y-6">
-          <div className="bg-white p-6 sm:p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs space-y-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-900 mb-1">
-                Client Contact Information
-              </h2>
-              <p className="text-sm text-slate-500">
-                Please provide direct contact details for the individual or corporate representative.
+              <h2 className="text-base font-bold text-slate-900 mb-1">Client Contact & UAE Consent</h2>
+              <p className="text-xs text-slate-500">
+                Supply the legal name, telephone credentials, and verified client consent.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-5">
-              {/* Client Name */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Full Name / Legal Entity Name *
-                </label>
-                <div className="relative">
-                  <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                  <Input
-                    type="text"
-                    placeholder="e.g. Tariq Al Mansoori / Gulf Horizons Ltd"
-                    value={formData.clientName}
-                    onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
-                    className="pl-10 h-11"
-                    required
-                  />
-                </div>
-                <p className="text-xs text-slate-400 mt-1">
-                  Full name of the client or primary signatory.
-                </p>
-              </div>
-
-              {/* Phone & Email Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Telephone Number (with Country Code) *
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                    <Input
-                      type="tel"
-                      placeholder="+971 50 123 4567"
-                      value={formData.clientPhone}
-                      onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
-                      className="pl-10 h-11"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Email Address (Optional)
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                    <Input
-                      type="email"
-                      placeholder="client@domain.ae"
-                      value={formData.clientEmail}
-                      onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
-                      className="pl-10 h-11"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Contact Method & Country */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Preferred Communication Channel
-                  </label>
-                  <select
-                    className="flex h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                    value={formData.preferredContact}
-                    onChange={(e) => setFormData({ ...formData, preferredContact: e.target.value })}
-                  >
-                    <option value="phone">Direct Phone Call</option>
-                    <option value="whatsapp">WhatsApp Message</option>
-                    <option value="email">Email Introduction</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Country of Residence
-                  </label>
-                  <select
-                    className="flex h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                    value={formData.countryResidence}
-                    onChange={(e) => setFormData({ ...formData, countryResidence: e.target.value })}
-                  >
-                    <option value="United Arab Emirates">United Arab Emirates (UAE)</option>
-                    <option value="Saudi Arabia">Saudi Arabia</option>
-                    <option value="Qatar">Qatar</option>
-                    <option value="United Kingdom">United Kingdom</option>
-                    <option value="Switzerland">Switzerland</option>
-                    <option value="India">India</option>
-                    <option value="Other International">Other International Jurisdiction</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-between items-center">
-            <Button variant="secondary" onClick={handleBack} size="lg">
-              <ArrowLeft className="w-4 h-4 mr-2" /> Back
-            </Button>
-            <Button onClick={handleNext} size="lg" className="px-8 font-bold">
-              Continue to Specifications <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 3: Conditional Service Requirements */}
-      {currentStep === 3 && (
-        <div className="space-y-6">
-          <div className="bg-white p-6 sm:p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900 mb-1">
-                  Service Specifications: {selectedService.title}
-                </h2>
-                <p className="text-sm text-slate-500">
-                  Custom parameters tailored to this transaction type.
-                </p>
-              </div>
-              <Badge variant="info" className="text-xs px-3 py-1">
-                {selectedService.category}
-              </Badge>
-            </div>
-
-            {/* Expected Deal Value (Universal to all services for financial transparency) */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Estimated Deal / Transaction Value (AED) *
-              </label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-3 text-sm font-bold text-slate-400">
-                  AED
-                </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Client / Company Name *</label>
                 <Input
-                  type="number"
-                  min="1000"
-                  step="1000"
-                  value={formData.dealValue}
-                  onChange={(e) => setFormData({ ...formData, dealValue: e.target.value })}
-                  className="pl-14 h-11 text-base font-semibold"
-                  required
+                  placeholder="e.g. Tariq Al Nuaimi or Apex Ventures LLC"
+                  value={formData.clientName}
+                  onChange={(e) => setFormData({ ...formData, clientName: e.target.value })}
+                  className="rounded-xl"
                 />
               </div>
 
-              {/* Dynamic Commission Accrual Preview */}
-              <div className="mt-3 p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-emerald-600" />
-                  <span className="text-xs font-semibold text-emerald-800">
-                    Calculated Partner Commission ({selectedService.commissionRate}%):
-                  </span>
-                </div>
-                <strong className="text-base font-extrabold text-emerald-700">
-                  {formatAED(estimatedCommission)}
-                </strong>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Contact Telephone *</label>
+                <Input
+                  placeholder="e.g. +971 50 123 4567"
+                  value={formData.clientPhone}
+                  onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
+                  className="rounded-xl font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Email Address (Optional)</label>
+                <Input
+                  type="email"
+                  placeholder="e.g. client@example.com"
+                  value={formData.clientEmail}
+                  onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
+                  className="rounded-xl font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Country of Residence</label>
+                <Input
+                  placeholder="e.g. United Arab Emirates"
+                  value={formData.countryResidence}
+                  onChange={(e) => setFormData({ ...formData, countryResidence: e.target.value })}
+                  className="rounded-xl"
+                />
               </div>
             </div>
 
-            {/* CONDITIONAL FIELDS BASED ON SERVICE CATEGORY */}
-            {formData.selectedCategoryId === 'property' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-2">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Property Asset Class
-                  </label>
-                  <select
-                    className="flex h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                    value={formData.propertyType}
-                    onChange={(e) => setFormData({ ...formData, propertyType: e.target.value })}
-                  >
-                    <option value="Luxury Villa / Penthouse">Luxury Villa / Penthouse</option>
-                    <option value="Commercial Freehold Office">Commercial Freehold Office</option>
-                    <option value="Off-Plan High-Yield Investment">Off-Plan High-Yield Investment</option>
-                    <option value="Whole Building / Land Plot">Whole Building / Land Plot</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Preferred Prime Location
-                  </label>
-                  <select
-                    className="flex h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                    value={formData.propertyLocation}
-                    onChange={(e) => setFormData({ ...formData, propertyLocation: e.target.value })}
-                  >
-                    <option value="Palm Jumeirah">Palm Jumeirah</option>
-                    <option value="Downtown Dubai">Downtown Dubai</option>
-                    <option value="Dubai Hills Estate">Dubai Hills Estate</option>
-                    <option value="DIFC / Business Bay">DIFC / Business Bay</option>
-                    <option value="Dubai Marina / Bluewaters">Dubai Marina / Bluewaters</option>
-                    <option value="Abu Dhabi - Yas / Saadiyat Island">Abu Dhabi (Yas / Saadiyat Island)</option>
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {formData.selectedCategoryId === 'mortgage' && (
-              <div className="pt-2">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Financing Transaction Type
-                </label>
-                <select
-                  className="flex h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                  value={formData.mortgageType}
-                  onChange={(e) => setFormData({ ...formData, mortgageType: e.target.value })}
-                >
-                  <option value="Ready Property Purchase">Ready Property Purchase (Resident / Expat)</option>
-                  <option value="Non-Resident International Mortgage">Non-Resident International Investor Mortgage</option>
-                  <option value="Equity Release / Refinance">Equity Release / Mortgage Buyout</option>
-                  <option value="Commercial Property Loan">Commercial Property Loan</option>
-                </select>
-              </div>
-            )}
-
-            {formData.selectedCategoryId === 'golden-visa' && (
-              <div className="pt-2">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Visa Qualification Pathway
-                </label>
-                <select
-                  className="flex h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                  value={formData.goldenVisaCategory}
-                  onChange={(e) => setFormData({ ...formData, goldenVisaCategory: e.target.value })}
-                >
-                  <option value="Real Estate Investor (AED 2M+)">Property Investor (Title deed ≥ AED 2M)</option>
-                  <option value="Executive / Specialized Talent">Executive Leadership / Specialized Talent</option>
-                  <option value="Entrepreneur / Business Owner">Entrepreneur / Business Owner</option>
-                  <option value="Family Sponsorship Add-on">Family & Dependents Package</option>
-                </select>
-              </div>
-            )}
-
-            {formData.selectedCategoryId === 'corporate-advisory' && (
-              <div className="pt-2">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Corporate Advisory Vehicle
-                </label>
-                <select
-                  className="flex h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                  value={formData.advisoryScope}
-                  onChange={(e) => setFormData({ ...formData, advisoryScope: e.target.value })}
-                >
-                  <option value="DIFC / ADGM SPV Asset Protection">DIFC / ADGM Holding SPV Structuring</option>
-                  <option value="Cross-Border Tax & Compliance">Cross-Border Corporate Tax Structuring</option>
-                  <option value="Family Office & Foundation">Family Office Foundation Setup</option>
-                </select>
-              </div>
-            )}
-
-            {formData.selectedCategoryId === 'bank-account' && (
-              <div className="pt-2">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Preferred Commercial Bank Desk
-                </label>
-                <select
-                  className="flex h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                  value={formData.bankingPreference}
-                  onChange={(e) => setFormData({ ...formData, bankingPreference: e.target.value })}
-                >
-                  <option value="Emirates NBD">Emirates NBD (Priority Corporate Desk)</option>
-                  <option value="First Abu Dhabi Bank (FAB)">First Abu Dhabi Bank (FAB Commercial)</option>
-                  <option value="Mashreq Bank">Mashreq Bank (NEOBIZ / Corporate)</option>
-                  <option value="Wio Bank Business">Wio Bank Business (Fast Digital Onboarding)</option>
-                </select>
-              </div>
-            )}
-
-            {formData.selectedCategoryId === 'company-formation' && (
-              <div className="pt-2">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Incorporation Jurisdiction
-                </label>
-                <select
-                  className="flex h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                  value={formData.formationJurisdiction}
-                  onChange={(e) => setFormData({ ...formData, formationJurisdiction: e.target.value })}
-                >
-                  <option value="Dubai Mainland (DET)">Dubai Mainland LLC (100% Foreign Ownership)</option>
-                  <option value="DMCC Free Zone">DMCC (Dubai Multi Commodities Centre)</option>
-                  <option value="IFZA Dubai">IFZA Dubai Silicon Oasis</option>
-                  <option value="ADGM Abu Dhabi">ADGM (Abu Dhabi Global Market)</option>
-                </select>
-              </div>
-            )}
-
-            {/* Client Context & Requirements */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Strategic Notes & Client Requirements
-              </label>
-              <Textarea
-                placeholder="Include details about client timeline, specific property unit requirements, source of funds, or urgent deadlines..."
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                className="min-h-[100px]"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-between items-center">
-            <Button variant="secondary" onClick={handleBack} size="lg">
-              <ArrowLeft className="w-4 h-4 mr-2" /> Back
-            </Button>
-            <Button onClick={handleNext} size="lg" className="px-8 font-bold">
-              Review Referral <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* STEP 4: Review and Consent */}
-      {currentStep === 4 && (
-        <div className="space-y-6">
-          <div className="bg-white p-6 sm:p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 mb-1">
-                Final Review & Partner Consent
-              </h2>
-              <p className="text-sm text-slate-500">
-                Verify the referral information before dispatching to the Prospera desk.
-              </p>
-            </div>
-
-            {/* Summary Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-5 rounded-xl border border-slate-200">
-              <div>
-                <span className="text-xs uppercase font-bold text-slate-400">Client / Company</span>
-                <p className="font-bold text-slate-900 text-base mt-0.5">{formData.clientName}</p>
-                <p className="text-xs text-slate-500 mt-1">{formData.clientPhone} • {formData.clientEmail || 'No email provided'}</p>
-              </div>
-
-              <div>
-                <span className="text-xs uppercase font-bold text-slate-400">Selected Service</span>
-                <p className="font-bold text-blue-600 text-base mt-0.5">{selectedService.title}</p>
-                <p className="text-xs text-slate-500 mt-1">{formData.countryResidence} • Via {formData.preferredContact}</p>
-              </div>
-
-              <div>
-                <span className="text-xs uppercase font-bold text-slate-400">Expected Deal Value</span>
-                <p className="font-bold text-slate-900 text-lg mt-0.5">{formatAED(dealValueNum)}</p>
-              </div>
-
-              <div>
-                <span className="text-xs uppercase font-bold text-slate-400">Estimated Commission</span>
-                <p className="font-bold text-emerald-600 text-lg mt-0.5">
-                  {formatAED(estimatedCommission)}
-                  <span className="text-xs font-normal text-slate-500 ml-1.5">
-                    ({selectedService.commissionRate}% tier)
-                  </span>
-                </p>
-              </div>
-            </div>
-
-            {/* Consent Checkbox */}
-            <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/50 space-y-3">
-              <label className="flex items-start gap-3 cursor-pointer select-none">
+            {/* UAE PDPL Consent Checkbox */}
+            <div className="mt-4 p-4 rounded-xl bg-blue-50/60 border border-blue-200/70">
+              <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={formData.clientConsent}
                   onChange={(e) => setFormData({ ...formData, clientConsent: e.target.checked })}
-                  className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 mt-0.5 cursor-pointer"
+                  className="mt-0.5 rounded text-blue-600 focus:ring-blue-500 h-4 w-4"
                 />
-                <div className="text-xs leading-relaxed text-slate-700">
-                  <strong className="text-slate-900 font-semibold block mb-0.5">
-                    Explicit Client Referral Consent
+                <div className="text-xs text-slate-700 leading-relaxed">
+                  <strong className="text-slate-900 block font-semibold">
+                    Client Express Consent Confirmed (UAE PDPL Compliant)
                   </strong>
-                  I confirm that I have informed the client of this referral and have their explicit consent to be contacted by Prospera authorized corporate specialists under UAE Personal Data Protection laws.
+                  I confirm that the client has explicitly authorized Prospera and licensed partner desks to contact them regarding this advisory referral pursuant to UAE Federal Decree-Law No. 45/2021 on Personal Data Protection.
                 </div>
               </label>
             </div>
           </div>
 
-          <div className="flex justify-between items-center">
-            <Button variant="secondary" onClick={handleBack} size="lg" disabled={isSubmitting}>
-              <ArrowLeft className="w-4 h-4 mr-2" /> Back
+          <div className="flex justify-between">
+            <Button variant="secondary" onClick={handleBack} className="rounded-xl">
+              <ArrowLeft size={14} className="mr-1.5" /> Back
             </Button>
-            <Button
-              onClick={handleSubmit}
-              size="lg"
-              className="px-8 font-bold bg-blue-600 hover:bg-blue-700 text-white"
-              disabled={isSubmitting || !formData.clientConsent}
-            >
-              {isSubmitting ? 'Dispatching to Prospera...' : 'Submit Referral Now'}
+            <Button onClick={handleNext} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl">
+              Continue to Specifications <ArrowRight size={14} className="ml-1.5" />
             </Button>
           </div>
         </div>
       )}
 
-      {/* STEP 5: Submission Success Confirmation */}
-      {currentStep === 5 && submittedLead && (
-        <div className="bg-white p-8 sm:p-12 rounded-2xl border border-slate-200 shadow-sm text-center max-w-2xl mx-auto space-y-6">
+      {/* STAGE 3: Service-Specific Specifications */}
+      {currentStep === 3 && (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs space-y-4">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 mb-1">
+                {selectedService?.name} Specifications
+              </h2>
+              <p className="text-xs text-slate-500">
+                Tailor transaction parameters specific to {servicePresentation?.categoryLabel.toLowerCase()} processing.
+              </p>
+            </div>
+
+            {servicePresentation?.categoryKey === 'property' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Property Type</label>
+                  <select
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800"
+                    value={formData.propertyType}
+                    onChange={(e) => setFormData({ ...formData, propertyType: e.target.value })}
+                  >
+                    <option>Luxury Waterfront Villa</option>
+                    <option>Branded Penthouse</option>
+                    <option>Commercial Freehold Office</option>
+                    <option>Full Residential Building</option>
+                    <option>Off-Plan Developer Townhouse</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Target Location</label>
+                  <Input
+                    placeholder="e.g. Palm Jumeirah, Downtown Dubai, Dubai Hills"
+                    value={formData.propertyLocation}
+                    onChange={(e) => setFormData({ ...formData, propertyLocation: e.target.value })}
+                    className="rounded-xl"
+                  />
+                </div>
+              </div>
+            )}
+
+            {servicePresentation?.categoryKey === 'mortgage' && (
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Financing Structure</label>
+                <select
+                  className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800"
+                  value={formData.mortgageType}
+                  onChange={(e) => setFormData({ ...formData, mortgageType: e.target.value })}
+                >
+                  <option>UAE Resident Ready Property Mortgage</option>
+                  <option>Non-Resident Foreign National Mortgage</option>
+                  <option>Refinancing / Equity Release</option>
+                  <option>Commercial Mortgage (Warehouse / Freehold Building)</option>
+                </select>
+              </div>
+            )}
+
+            {servicePresentation?.categoryKey === 'golden-visa' && (
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Residency Category</label>
+                <select
+                  className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800"
+                  value={formData.goldenVisaCategory}
+                  onChange={(e) => setFormData({ ...formData, goldenVisaCategory: e.target.value })}
+                >
+                  <option>Real Estate Investor (AED 2M+ Equity)</option>
+                  <option>Entrepreneur / Startup Founder</option>
+                  <option>Senior Executive / High Skilled Talent</option>
+                </select>
+              </div>
+            )}
+
+            {servicePresentation?.categoryKey === 'corporate-advisory' && (
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Advisory Scope</label>
+                <select
+                  className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800"
+                  value={formData.advisoryScope}
+                  onChange={(e) => setFormData({ ...formData, advisoryScope: e.target.value })}
+                >
+                  <option>DIFC / ADGM SPV Asset Protection Foundation</option>
+                  <option>Cross-Border Tax & Corporate Restructuring</option>
+                  <option>M&A Due Diligence & Deal Sourcing</option>
+                </select>
+              </div>
+            )}
+
+            {servicePresentation?.categoryKey === 'bank-account' && (
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Preferred UAE Financial Institution</label>
+                <select
+                  className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800"
+                  value={formData.bankingPreference}
+                  onChange={(e) => setFormData({ ...formData, bankingPreference: e.target.value })}
+                >
+                  <option>Emirates NBD</option>
+                  <option>First Abu Dhabi Bank (FAB)</option>
+                  <option>Mashreq Neo Biz</option>
+                  <option>Wio Business</option>
+                </select>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Note: Corporate account opening is subject to bank compliance review and client KYC verification.
+                </p>
+              </div>
+            )}
+
+            {servicePresentation?.categoryKey === 'company-formation' && (
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Jurisdiction</label>
+                <select
+                  className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800"
+                  value={formData.formationJurisdiction}
+                  onChange={(e) => setFormData({ ...formData, formationJurisdiction: e.target.value })}
+                >
+                  <option>Dubai Mainland (DET 100% Foreign Owned)</option>
+                  <option>DMCC (Dubai Multi Commodities Centre)</option>
+                  <option>IFZA (International Free Zone Authority)</option>
+                  <option>DAFZA (Dubai Airport Freezone)</option>
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-between">
+            <Button variant="secondary" onClick={handleBack} className="rounded-xl">
+              <ArrowLeft size={14} className="mr-1.5" /> Back
+            </Button>
+            <Button onClick={handleNext} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl">
+              Continue to Opportunity Scope <ArrowRight size={14} className="ml-1.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* STAGE 4: Opportunity Scope & Commercial Value */}
+      {currentStep === 4 && (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs space-y-4">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 mb-1">Opportunity Scope & Value</h2>
+              <p className="text-xs text-slate-500">
+                Provide estimated transaction value and expected closing timeline.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Estimated Deal Value (AED) *</label>
+                <Input
+                  type="number"
+                  placeholder="e.g. 1500000"
+                  value={formData.dealValue}
+                  onChange={(e) => setFormData({ ...formData, dealValue: e.target.value })}
+                  className="rounded-xl font-mono text-sm font-bold"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Expected Timeline</label>
+                <select
+                  className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-xs text-slate-800"
+                  value={formData.closingTimeline}
+                  onChange={(e) => setFormData({ ...formData, closingTimeline: e.target.value })}
+                >
+                  <option>Immediate / Within 7 Days</option>
+                  <option>Within 30 Days</option>
+                  <option>Within 60 Days</option>
+                  <option>Exploring / Long Term</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Derived Indicative Commission Calculation */}
+            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">
+                  Indicative Partner Commission
+                </span>
+                <div className="text-xl font-extrabold text-emerald-700">
+                  {formatAED(estimatedCommission)}
+                </div>
+                <p className="text-[10px] text-emerald-800/80 mt-0.5">
+                  Based on approved {partnerRatePercent.toFixed(2)}% BPS catalog rate. Final settlement governed by verified deal closure.
+                </p>
+              </div>
+              <span className="text-xs font-semibold text-emerald-600 bg-white px-3 py-1 rounded-full border border-emerald-200 flex-shrink-0">
+                {partnerRatePercent.toFixed(2)}% Rate
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700">Additional Opportunity Notes</label>
+              <Textarea
+                placeholder="Client specific budget, preferred contact window, or special requirements..."
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                className="rounded-xl text-xs"
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-between">
+            <Button variant="secondary" onClick={handleBack} className="rounded-xl">
+              <ArrowLeft size={14} className="mr-1.5" /> Back
+            </Button>
+            <Button onClick={handleNext} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl">
+              Proceed to Review & Pre-Checks <ArrowRight size={14} className="ml-1.5" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* STAGE 5: Review & Duplicate Prevention */}
+      {currentStep === 5 && (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-xs space-y-4">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 mb-1">
+                Stage 5: Review & Duplicate Pre-Checks
+              </h2>
+              <p className="text-xs text-slate-500">
+                Verify details before finalizing referral entry into the Prospera compliance ledger.
+              </p>
+            </div>
+
+            {/* Duplicate Notice */}
+            {potentialDuplicate ? (
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-800 text-xs flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <strong className="font-bold">Existing Lead Found in Pipeline:</strong>
+                  <p className="mt-0.5">
+                    Client contact details match active lead <strong className="font-mono">{potentialDuplicate.referenceNo}</strong> ({potentialDuplicate.clientName}). Duplicate leads will be triaged by the compliance coordinator desk.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <span>Duplicate pre-check clear: No conflicting active leads registered for this telephone number.</span>
+              </div>
+            )}
+
+            {/* Summary Review Card */}
+            <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 text-xs space-y-3">
+              <div className="flex justify-between py-1 border-b border-slate-200">
+                <span className="text-slate-500">Service Offering:</span>
+                <strong className="text-slate-900">{selectedService?.name}</strong>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200">
+                <span className="text-slate-500">Client / Company Name:</span>
+                <strong className="text-slate-900">{formData.clientName}</strong>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200">
+                <span className="text-slate-500">Client Telephone:</span>
+                <strong className="text-slate-900 font-mono">{formData.clientPhone}</strong>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200">
+                <span className="text-slate-500">Estimated Deal Value:</span>
+                <strong className="text-slate-900">{formatAED(dealValueNum)}</strong>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200">
+                <span className="text-slate-500">Indicative Commission:</span>
+                <strong className="text-emerald-600">{formatAED(estimatedCommission)} ({partnerRatePercent.toFixed(2)}%)</strong>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="text-slate-500">Client Consent:</span>
+                <strong className="text-emerald-700">✓ Express Consent Verified (PDPL Compliant)</strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-between">
+            <Button variant="secondary" onClick={handleBack} className="rounded-xl">
+              <ArrowLeft size={14} className="mr-1.5" /> Back
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl px-6"
+            >
+              {isSubmitting ? 'Creating Lead...' : 'Submit to Compliance Desk'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* STAGE 6: Submission Success & Reference Tracking */}
+      {currentStep === 6 && submittedLead && (
+        <div className="bg-white p-8 sm:p-10 rounded-2xl border border-slate-200 shadow-sm text-center max-w-2xl mx-auto space-y-6">
           <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-10 h-10" />
           </div>
 
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-              Referral Successfully Dispatched
+              Referral Created & Logged
             </span>
-            <h2 className="text-2xl font-extrabold text-slate-900 mt-3">
-              Lead Created: {submittedLead.referenceNo}
+            <h2 className="text-2xl font-extrabold text-slate-900 mt-3 font-mono">
+              {submittedLead.referenceNo}
             </h2>
-            <p className="text-sm text-slate-500 mt-1.5">
-              Client <strong>{submittedLead.clientName}</strong> has been logged in the Prospera Referral Pipeline under status <strong>SUBMITTED</strong>.
+            <p className="text-xs sm:text-sm text-slate-500 mt-1.5">
+              Client <strong>{submittedLead.clientName}</strong> has been registered with status <strong>{submittedLead.status}</strong>.
             </p>
           </div>
 
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 text-left text-xs space-y-2 text-slate-600">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Service Category:</span>
-              <strong className="text-slate-800">{submittedLead.service?.name}</strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Estimated Deal Value:</span>
-              <strong className="text-slate-800">{formatAED(submittedLead.expectedDealValue)}</strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Estimated Partner Reward:</span>
-              <strong className="text-emerald-600">{formatAED(estimatedCommission)}</strong>
-            </div>
-            <div className="flex justify-between pt-2 border-t border-slate-200">
-              <span className="text-slate-500">SLA Response Window:</span>
-              <strong className="text-slate-800">Assigned coordinator will reach out within 4 business hours</strong>
+          {/* Timeline of Next Steps */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 text-left text-xs space-y-3">
+            <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider text-slate-400">
+              Lifecycle Progress
+            </h4>
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-2.5 text-emerald-700 font-semibold">
+                <CheckCircle2 size={15} />
+                <span>1. Referral Created & Reference Assigned ({submittedLead.referenceNo})</span>
+              </div>
+              <div className="flex items-center gap-2.5 text-blue-700 font-semibold">
+                <Clock size={15} />
+                <span>2. Operations Coordinator Review (Within 4 Business Hours)</span>
+              </div>
+              <div className="flex items-center gap-2.5 text-slate-400">
+                <User size={15} />
+                <span>3. Licensed Broker Allocation</span>
+              </div>
+              <div className="flex items-center gap-2.5 text-slate-400">
+                <DollarSign size={15} />
+                <span>4. Client Deal Closing & Commission Settlement</span>
+              </div>
             </div>
           </div>
 
@@ -841,24 +949,18 @@ export default function NewReferralWizardPage() {
             <Button
               variant="secondary"
               onClick={() => {
-                setFormData({
-                  ...formData,
-                  clientName: '',
-                  clientPhone: '',
-                  clientEmail: '',
-                  notes: '',
-                  clientConsent: false,
-                });
+                setFormData(INITIAL_FORM_STATE);
                 setCurrentStep(1);
               }}
+              className="rounded-xl"
             >
-              Submit Another Referral
+              Submit Another Lead
             </Button>
             <Button
               onClick={() => router.push('/referrals')}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl"
             >
-              View in My Referrals Pipeline
+              View in Pipeline
             </Button>
           </div>
         </div>

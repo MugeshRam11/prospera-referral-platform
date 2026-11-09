@@ -57,6 +57,14 @@ export interface AuthenticatedUser {
   companyName: string | null;
   referralCode: string | null;
   emailVerifiedAt: Date | null;
+  agencyId?: string | null;
+  agencyRole?: AgencyRole | null;
+  agency?: {
+    id: string;
+    name: string;
+    legalName?: string;
+    status: AgencyStatus;
+  } | null;
 }
 
 export interface AuthenticatedSession {

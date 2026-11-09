@@ -233,7 +233,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
       expect(res.status).toBe(403);
     });
 
-    it('should deny AGENT from creating referrals (403 Forbidden)', async () => {
+    it('should allow AGENT to create referrals with SUBMITTED status', async () => {
       const { token } = await createTestUserSession('sales.agent@prospera.ae', Role.AGENT);
 
       const res = await request(app)
@@ -244,6 +244,24 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
           clientName: 'Agent Direct Intake',
           clientPhone: '+971501234567',
           expectedDealValue: 10000,
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.status).toBe(LeadStatus.SUBMITTED);
+    });
+
+    it('should deny COORDINATOR from creating referrals (403 Forbidden)', async () => {
+      const { token } = await createTestUserSession('coord.lead@prospera.ae', Role.COORDINATOR);
+
+      const res = await request(app)
+        .post('/api/v1/referrals')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          serviceId: activeServiceId,
+          clientName: 'Coordinator Intake Attempt',
+          clientPhone: '+971509998877',
+          expectedDealValue: 50000,
         });
 
       expect(res.status).toBe(403);

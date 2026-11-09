@@ -16,9 +16,11 @@ import {
   Percent,
   Briefcase,
   ArrowRight,
+  Sparkles,
 } from 'lucide-react';
 import { MetricsCards } from '../components/MetricsCards';
-import { LeadItem, CommissionEntry, DashboardMetrics, UserSummary } from '../types';
+import { StatusBadge } from '../components/StatusBadge';
+import { LeadItem, DashboardMetrics, UserSummary } from '../types';
 import { ApiClient } from '../lib/api';
 import heroBg from '../assets/hero-bg.webp';
 
@@ -35,8 +37,32 @@ export default function DashboardPage() {
         ApiClient.getReferrals(),
         ApiClient.getMe(),
       ]);
+
+      // Intelligent role routing: Redirect specialized personas to their designated portals
+      if (u) {
+        if (u.role === 'ADMIN') {
+          window.location.replace('/admin');
+          return;
+        }
+        if (u.role === 'COORDINATOR') {
+          window.location.replace('/coordinator');
+          return;
+        }
+        if (u.role === 'REFERRAL_PARTNER') {
+          window.location.replace('/partner');
+          return;
+        }
+        if (
+          u.agentType === 'AGENCY_MEMBER' &&
+          (u.agencyRole === 'AGENCY_OWNER' || u.agencyRole === 'AGENCY_ADMIN')
+        ) {
+          window.location.replace('/agency');
+          return;
+        }
+      }
+
       setMetrics(m);
-      setLeads(l);
+      setLeads(l || []);
       setUser(u);
     } catch (err) {
       console.error('Error loading dashboard data', err);
@@ -69,89 +95,45 @@ export default function DashboardPage() {
     window.dispatchEvent(new CustomEvent('prospera_open_detail', { detail: lead }));
   };
 
-  // High-fidelity fallback / sample referrals matching reference screenshot
-  const displayReferrals = [
-    {
-      id: 'REF-2025-0048',
-      clientName: 'Ahmed Al Mansoori',
-      service: 'Property & Real Estate',
-      status: 'In Progress',
-      statusColor: 'bg-blue-50 text-blue-600 border-blue-100',
-      submitted: '2h ago',
-    },
-    {
-      id: 'REF-2025-0047',
-      clientName: 'Sarah Johnson',
-      service: 'Mortgage',
-      status: 'Won Deal',
-      statusColor: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-      submitted: '5h ago',
-    },
-    {
-      id: 'REF-2025-0046',
-      clientName: 'Mohammed Khan',
-      service: 'Golden Visa',
-      status: 'In Progress',
-      statusColor: 'bg-blue-50 text-blue-600 border-blue-100',
-      submitted: '1d ago',
-    },
-    {
-      id: 'REF-2025-0045',
-      clientName: 'Emily Carter',
-      service: 'Corporate Advisory',
-      status: 'Lost',
-      statusColor: 'bg-rose-50 text-rose-600 border-rose-100',
-      submitted: '2d ago',
-    },
-    {
-      id: 'REF-2025-0044',
-      clientName: 'David Wilson',
-      service: 'Bank Account Opening',
-      status: 'In Progress',
-      statusColor: 'bg-blue-50 text-blue-600 border-blue-100',
-      submitted: '3d ago',
-    },
-  ];
-
   const servicesList = [
     {
       title: 'Property & Real Estate',
-      desc: 'Residential & commercial properties',
+      desc: 'Prime UAE residential & commercial acquisitions',
       icon: Home,
       iconColor: 'bg-blue-100 text-blue-600',
       href: '/services',
     },
     {
       title: 'Mortgage Services',
-      desc: 'Competitive rates & flexible terms',
+      desc: 'UAE resident & non-resident financing advisory',
       icon: Percent,
       iconColor: 'bg-teal-100 text-teal-600',
       href: '/services',
     },
     {
       title: 'Golden Visa',
-      desc: 'UAE residency & long-term security',
+      desc: '10-Year UAE residency for investors & executives',
       icon: ShieldCheck,
       iconColor: 'bg-amber-100 text-amber-600',
       href: '/services',
     },
     {
       title: 'Corporate Advisory',
-      desc: 'Business setup & growth support',
+      desc: 'DIFC/ADGM structuring, foundations & M&A',
       icon: Briefcase,
       iconColor: 'bg-purple-100 text-purple-600',
       href: '/services',
     },
     {
       title: 'Bank Account Opening',
-      desc: 'Personal & corporate accounts',
+      desc: 'Corporate accounts with Tier-1 UAE banks',
       icon: CreditCard,
       iconColor: 'bg-cyan-100 text-cyan-600',
       href: '/services',
     },
     {
       title: 'Company Formation',
-      desc: 'Free zone & mainland setup',
+      desc: 'Mainland & Free Zone commercial licensing',
       icon: Building2,
       iconColor: 'bg-orange-100 text-orange-600',
       href: '/services',
@@ -159,101 +141,53 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-7 pb-10">
-      {/* 1. TOP GREETING & HERO BANNER (MATCHING REFERENCE SCREENSHOT) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        {/* Left: Personalized Greeting */}
-        <div className="lg:col-span-5 flex flex-col justify-center">
-          <p className="text-slate-500 text-base font-normal">Good morning,</p>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mt-1 flex items-center gap-2 tracking-tight">
-            <span>{user?.fullName?.split(' ')[0] || 'Mugesh'}!</span>
-            <span className="inline-block animate-wave">👋</span>
-          </h1>
-          <p className="text-slate-600 text-sm font-medium mt-2 leading-relaxed">
-            Here&apos;s your referral performance and latest updates.
-          </p>
-          <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
-            Keep building your network — more opportunities await!
-          </p>
+    <div className="space-y-6">
+      {/* 1. HERO BANNER */}
+      <div className="rounded-2xl overflow-hidden relative shadow-sm border border-slate-200/80">
+        <div className="relative min-h-[190px] sm:min-h-[220px] flex items-center p-6 sm:p-8">
+          {/* Background Image */}
+          <Image
+            src={heroBg}
+            alt="Dubai Skyline"
+            fill
+            className="object-cover object-center"
+            priority
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0B1528]/95 via-[#0B1528]/85 to-transparent sm:to-black/30" />
 
-          {/* Role Portal Jump Pill */}
-          {user?.role === 'ADMIN' && (
-            <Link
-              href="/admin"
-              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors w-fit border border-blue-200"
-            >
-              <span>Prospera Administration Portal</span>
-              <ArrowRight size={13} />
-            </Link>
-          )}
-          {user?.role === 'COORDINATOR' && (
-            <Link
-              href="/coordinator"
-              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 transition-colors w-fit border border-indigo-200"
-            >
-              <span>Coordinator Dispatch Desk</span>
-              <ArrowRight size={13} />
-            </Link>
-          )}
-          {user?.role === 'REFERRAL_PARTNER' && (
-            <Link
-              href="/partner"
-              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 text-xs font-semibold hover:bg-emerald-100 transition-colors w-fit border border-emerald-200"
-            >
-              <span>Corporate Partner Portal</span>
-              <ArrowRight size={13} />
-            </Link>
-          )}
-          {user?.agentType === 'AGENCY_MEMBER' && (
-            <Link
-              href="/agency"
-              className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 text-purple-700 text-xs font-semibold hover:bg-purple-100 transition-colors w-fit border border-purple-200"
-            >
-              <span>Agency Organization Portal</span>
-              <ArrowRight size={13} />
-            </Link>
-          )}
-        </div>
-
-        {/* Right: Luxury Property Hero Banner */}
-        <div className="lg:col-span-7">
-          <div className="relative rounded-2xl overflow-hidden min-h-[190px] h-full shadow-md flex flex-col justify-between p-6 group">
-            {/* Background Luxury Property Image */}
-            <div className="absolute inset-0">
-              <Image
-                src={heroBg}
-                alt="Luxury Dubai Villa Skyline"
-                fill
-                className="object-cover object-right group-hover:scale-105 transition-transform duration-700"
-                priority
-              />
-              {/* Dark Gradient Overlay for optimal legibility */}
-              <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/65 to-transparent" />
-            </div>
-
-            {/* Banner Header Tag */}
-            <div className="relative z-10">
-              <span className="inline-flex items-center bg-black/40 backdrop-blur-md text-white text-xs font-semibold px-3 py-1 rounded-full border border-white/20">
-                Premium Partner
+          {/* Banner Content */}
+          <div className="relative z-10 max-w-xl">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 text-blue-200 text-xs font-semibold backdrop-blur-sm border border-blue-400/30 mb-2.5">
+              <Sparkles size={12} />
+              <span>
+                {user?.agentType === 'AGENCY_MEMBER'
+                  ? `Broker • ${user.agency?.name || 'Agency Portal'}`
+                  : 'Independent Licensed Broker'}
               </span>
             </div>
 
-            {/* Banner Content */}
-            <div className="relative z-10 mt-3">
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-tight">
-                Refer Properties.
-                <br />
-                Earn More.
-              </h2>
-              <p className="text-slate-200 text-xs sm:text-sm mt-1 max-w-md font-light">
-                Luxury homes, prime locations, trusted developments.
-              </p>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight leading-tight">
+              Refer Properties.
+              <br />
+              Earn High-Value Commissions.
+            </h2>
+            <p className="text-slate-200 text-xs sm:text-sm mt-1.5 max-w-md font-light">
+              Connect clients to prime UAE developments, competitive mortgages, and corporate advisory services.
+            </p>
 
+            <div className="flex items-center gap-3 mt-4">
+              <Link
+                href="/referrals/new"
+                className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-4 py-2 rounded-xl transition-colors shadow-md"
+              >
+                <Plus size={14} />
+                <span>Submit Referral</span>
+              </Link>
               <Link
                 href="/services"
-                className="inline-flex items-center gap-1.5 bg-white text-slate-900 font-semibold text-xs px-4 py-2 rounded-full hover:bg-slate-100 transition-colors shadow-md mt-4"
+                className="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white font-medium text-xs px-3.5 py-2 rounded-xl backdrop-blur-xs transition-colors border border-white/20"
               >
-                <span>Explore Properties</span>
+                <span>Explore Catalog</span>
                 <ArrowRight size={13} />
               </Link>
             </div>
@@ -261,17 +195,17 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 2. 4 METRIC STAT CARDS WITH WAVE SPARKLINES */}
+      {/* 2. LIVE METRICS STAT CARDS */}
       <MetricsCards
         metrics={
           metrics || {
-            totalReferrals: 38,
-            activePipelineValue: 2850000,
-            wonReferralsCount: 14,
-            wonReferralsValue: 1250000,
-            totalEarnedCommission: 48750,
-            withdrawableBalance: 32400,
-            pendingClearanceCommission: 48750,
+            totalReferrals: leads.length,
+            activePipelineValue: 0,
+            wonReferralsCount: leads.filter((l) => l.status === 'WON').length,
+            wonReferralsValue: 0,
+            totalEarnedCommission: 0,
+            withdrawableBalance: 0,
+            pendingClearanceCommission: 0,
             payoutsProcessed: 0,
           }
         }
@@ -280,97 +214,76 @@ export default function DashboardPage() {
 
       {/* 3. MAIN DASHBOARD TWO-COLUMN LAYOUT */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* LEFT COLUMN: QUICK ACTIONS + RECENT REFERRALS */}
+        {/* LEFT COLUMN: QUICK ACTIONS + LIVE REFERRALS */}
         <div className="lg:col-span-8 space-y-6">
-          {/* A. QUICK ACTIONS CARD */}
+          {/* A. QUICK ACTIONS */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="text-base sm:text-lg font-bold text-slate-900">Quick Actions</h3>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">Broker Actions</h3>
               <Link
                 href="/referrals"
                 className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
               >
-                <span>View all</span>
+                <span>All Referrals</span>
                 <ArrowRight size={13} />
               </Link>
             </div>
-            <p className="text-xs text-slate-500 mb-5">
-              Get started with your next referral or manage your activities.
+            <p className="text-xs text-slate-500 mb-4">
+              Direct access to pipeline management, client onboarding, and payouts.
             </p>
 
-            {/* 5 Action Buttons Row */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-              {/* 1. New Referral (Solid Blue) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Link
                 href="/referrals/new"
-                className="bg-[#2563EB] hover:bg-blue-700 text-white rounded-2xl p-4 flex flex-col items-center justify-center gap-2.5 transition-all shadow-md shadow-blue-600/20 group"
+                className="bg-blue-50/60 hover:bg-blue-50 border border-blue-200/70 rounded-xl p-3.5 flex flex-col items-center justify-center gap-2 transition-all group"
               >
-                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Plus size={20} strokeWidth={2.6} className="text-white" />
+                <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
+                  <Plus size={18} />
                 </div>
-                <span className="text-xs font-semibold text-center text-white">
-                  New Referral
-                </span>
+                <span className="text-xs font-semibold text-slate-800 text-center">New Referral</span>
               </Link>
 
-              {/* 2. Browse Properties */}
               <Link
                 href="/services"
-                className="bg-white hover:bg-slate-50 border border-slate-200/90 rounded-2xl p-4 flex flex-col items-center justify-center gap-2.5 transition-all shadow-2xs hover:shadow-sm group"
+                className="bg-white hover:bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 flex flex-col items-center justify-center gap-2 transition-all group"
               >
-                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Home size={19} className="text-slate-700" />
+                <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 group-hover:scale-105 transition-transform">
+                  <Building2 size={18} />
                 </div>
-                <span className="text-xs font-semibold text-slate-700 text-center">
-                  Browse Properties
-                </span>
+                <span className="text-xs font-semibold text-slate-800 text-center">Service Catalog</span>
               </Link>
 
-              {/* 3. My Referrals */}
-              <Link
-                href="/referrals"
-                className="bg-white hover:bg-slate-50 border border-slate-200/90 rounded-2xl p-4 flex flex-col items-center justify-center gap-2.5 transition-all shadow-2xs hover:shadow-sm group"
-              >
-                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <FileText size={19} className="text-slate-700" />
-                </div>
-                <span className="text-xs font-semibold text-slate-700 text-center">
-                  My Referrals
-                </span>
-              </Link>
-
-              {/* 4. Check Commissions */}
               <Link
                 href="/commissions"
-                className="bg-white hover:bg-slate-50 border border-slate-200/90 rounded-2xl p-4 flex flex-col items-center justify-center gap-2.5 transition-all shadow-2xs hover:shadow-sm group"
+                className="bg-white hover:bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 flex flex-col items-center justify-center gap-2 transition-all group"
               >
-                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Coins size={19} className="text-slate-700" />
+                <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 group-hover:scale-105 transition-transform">
+                  <Coins size={18} />
                 </div>
-                <span className="text-xs font-semibold text-slate-700 text-center">
-                  Check Commissions
-                </span>
+                <span className="text-xs font-semibold text-slate-800 text-center">Earnings Ledger</span>
               </Link>
 
-              {/* 5. Request Withdrawal */}
               <button
                 onClick={openWithdrawModal}
-                className="bg-white hover:bg-slate-50 border border-slate-200/90 rounded-2xl p-4 flex flex-col items-center justify-center gap-2.5 transition-all shadow-2xs hover:shadow-sm group col-span-2 sm:col-span-1"
+                className="bg-white hover:bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 flex flex-col items-center justify-center gap-2 transition-all group"
               >
-                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <CreditCard size={19} className="text-slate-700" />
+                <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 group-hover:scale-105 transition-transform">
+                  <CreditCard size={18} />
                 </div>
-                <span className="text-xs font-semibold text-slate-700 text-center">
-                  Request Withdrawal
-                </span>
+                <span className="text-xs font-semibold text-slate-800 text-center">Request Payout</span>
               </button>
             </div>
           </div>
 
-          {/* B. RECENT REFERRALS TABLE */}
+          {/* B. RECENT LIVE REFERRALS TABLE */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base sm:text-lg font-bold text-slate-900">Recent Referrals</h3>
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                  Recent Referrals ({leads.length})
+                </h3>
+                <p className="text-xs text-slate-500">Live opportunities submitted by your account.</p>
+              </div>
               <Link
                 href="/referrals"
                 className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
@@ -393,116 +306,124 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {displayReferrals.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="hover:bg-slate-50/70 transition-colors group cursor-pointer"
-                      onClick={() => {
-                        const matchedLead = leads.find((l) => l.referenceNo === item.id);
-                        if (matchedLead) {
-                          openDetailModal(matchedLead);
-                        } else {
-                          window.location.href = '/referrals';
-                        }
-                      }}
-                    >
-                      <td className="py-3.5 pl-2 font-semibold text-slate-700 flex items-center gap-2">
-                        <FileText size={14} className="text-slate-400" />
-                        <span>{item.id}</span>
-                      </td>
-                      <td className="py-3.5 font-medium text-slate-900">
-                        {item.clientName}
-                      </td>
-                      <td className="py-3.5 text-slate-600">
-                        {item.service}
-                      </td>
-                      <td className="py-3.5">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${item.statusColor}`}
-                        >
-                          {item.status}
-                        </span>
-                      </td>
-                      <td className="py-3.5 text-slate-500 font-normal">
-                        {item.submitted}
-                      </td>
-                      <td className="py-3.5 pr-2 text-right">
-                        <span className="text-blue-600 font-semibold group-hover:underline inline-flex items-center gap-0.5">
-                          <span>View</span>
-                          <ChevronRight size={13} />
-                        </span>
+                  {leads.length > 0 ? (
+                    leads.slice(0, 6).map((lead) => (
+                      <tr
+                        key={lead.id}
+                        className="hover:bg-slate-50/70 transition-colors group cursor-pointer"
+                        onClick={() => openDetailModal(lead)}
+                      >
+                        <td className="py-3.5 pl-2 font-semibold text-slate-700 flex items-center gap-2">
+                          <FileText size={14} className="text-slate-400" />
+                          <span>{lead.referenceNo}</span>
+                        </td>
+                        <td className="py-3.5 font-medium text-slate-900">{lead.clientName}</td>
+                        <td className="py-3.5 text-slate-600">
+                          {lead.service?.name || 'UAE Advisory'}
+                        </td>
+                        <td className="py-3.5">
+                          <StatusBadge status={lead.status} />
+                        </td>
+                        <td className="py-3.5 text-slate-500 font-normal">
+                          {new Date(lead.createdAt).toLocaleDateString('en-GB', {
+                            day: 'numeric',
+                            month: 'short',
+                          })}
+                        </td>
+                        <td className="py-3.5 pr-2 text-right">
+                          <span className="text-blue-600 font-semibold group-hover:underline inline-flex items-center gap-0.5">
+                            <span>Inspect</span>
+                            <ChevronRight size={13} />
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="py-10 text-center text-slate-400">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <FileText size={32} className="text-slate-300" />
+                          <p className="text-xs font-bold text-slate-700">No referrals submitted yet</p>
+                          <p className="text-[11px] text-slate-400 max-w-sm">
+                            Connect your clients to luxury UAE properties, mortgages, or visa processing to track status and receive commission disbursements.
+                          </p>
+                          <Link
+                            href="/referrals/new"
+                            className="mt-2 inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-xl shadow-xs"
+                          >
+                            <Plus size={13} />
+                            <span>Create First Referral</span>
+                          </Link>
+                        </div>
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
         </div>
 
-        {/* RIGHT COLUMN: OUR SERVICES + NEED HELP? */}
+        {/* RIGHT COLUMN: SERVICES & SUPPORT */}
         <div className="lg:col-span-4 space-y-6">
-          {/* A. OUR SERVICES CARD */}
+          {/* A. OUR SERVICES */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
-            <h3 className="text-base sm:text-lg font-bold text-slate-900">Our Services</h3>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900">Ecosystem Services</h3>
             <p className="text-xs text-slate-500 mt-0.5 mb-4">
-              Help your clients with a complete range of solutions.
+              Accredited solutions across property, banking, and immigration.
             </p>
 
-            <div className="space-y-3">
-              {servicesList.map((srv) => {
+            <div className="space-y-2.5">
+              {servicesList.map((srv, idx) => {
                 const Icon = srv.icon;
                 return (
                   <Link
-                    key={srv.title}
+                    key={idx}
                     href={srv.href}
-                    className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 transition-colors group border border-transparent hover:border-slate-100"
+                    className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50/80 transition-all group"
                   >
                     <div className="flex items-center gap-3">
-                      <div
-                        className={`w-9 h-9 rounded-xl ${srv.iconColor} flex items-center justify-center flex-shrink-0 shadow-2xs group-hover:scale-105 transition-transform`}
-                      >
-                        <Icon size={18} />
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${srv.iconColor}`}>
+                        <Icon size={17} />
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
                           {srv.title}
-                        </span>
-                        <span className="text-[11px] text-slate-500">
-                          {srv.desc}
-                        </span>
+                        </h4>
+                        <p className="text-[11px] text-slate-400 leading-tight">{srv.desc}</p>
                       </div>
                     </div>
-                    <ChevronRight
-                      size={15}
-                      className="text-slate-400 group-hover:text-blue-600 transition-colors"
-                    />
+                    <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-600 transition-colors" />
                   </Link>
                 );
               })}
             </div>
           </div>
 
-          {/* B. NEED HELP? CARD */}
-          <div className="bg-blue-50/70 border border-blue-100/90 rounded-2xl p-5 shadow-2xs">
-            <div className="flex items-start gap-3.5">
-              <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
-                <LifeBuoy size={19} />
+          {/* B. BROKER SUPPORT & CONCIERGE */}
+          <div className="bg-gradient-to-br from-slate-900 to-[#14243A] rounded-2xl p-5 text-white shadow-sm border border-slate-800">
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-300">
+                <LifeBuoy size={16} />
               </div>
-              <div className="flex-1">
-                <h4 className="text-sm font-bold text-slate-900 leading-tight">Need help?</h4>
-                <p className="text-xs text-slate-600 mt-1">
-                  Our support team is here for you.
-                </p>
-
-                <a
-                  href="mailto:support@prospera.ae"
-                  className="mt-3 inline-flex items-center gap-1.5 bg-white border border-blue-200 text-blue-600 font-semibold text-xs px-3.5 py-1.5 rounded-full hover:bg-blue-50 transition-colors shadow-2xs"
-                >
-                  <span>Contact Support</span>
-                  <ArrowRight size={12} />
-                </a>
-              </div>
+              <h4 className="text-xs font-bold tracking-tight">Concierge Support Desk</h4>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed font-light">
+              Need assistance with mortgage pre-approvals, Golden Visa eligibility, or high-value villa off-plan contracts?
+            </p>
+            <div className="mt-4 flex items-center gap-2">
+              <Link
+                href="/support"
+                className="bg-white hover:bg-slate-100 text-slate-900 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-colors shadow-2xs"
+              >
+                Contact Concierge
+              </Link>
+              <Link
+                href="/kyc"
+                className="text-slate-300 hover:text-white text-[11px] font-medium px-2 py-1.5"
+              >
+                Check KYC
+              </Link>
             </div>
           </div>
         </div>

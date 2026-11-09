@@ -41,6 +41,7 @@ vi.mock('../src/lib/prisma', () => {
       },
       service: {
         findUnique: vi.fn(),
+        findMany: vi.fn(),
       },
       user: {
         findUnique: vi.fn(),
@@ -253,6 +254,26 @@ describe('PrismaReferralRepository (Isolated Mocked Delegate Tests)', () => {
         },
       });
       expect(result.id).toBe('lead-1');
+    });
+  });
+
+  describe('Service Querying', () => {
+    it('should query active services with categories and commission rules', async () => {
+      const mockServices = [
+        { id: 'srv-1', name: 'Luxury RE', slug: 'luxury-re', isActive: true },
+      ];
+      (prismaMock.service.findMany as MockFn).mockResolvedValue(mockServices);
+
+      const res = await repository.listActiveServices();
+      expect(prismaMock.service.findMany).toHaveBeenCalledWith({
+        where: { isActive: true },
+        include: {
+          category: true,
+          commissionRules: { where: { isActive: true } },
+        },
+        orderBy: { name: 'asc' },
+      });
+      expect(res).toEqual(mockServices);
     });
   });
 

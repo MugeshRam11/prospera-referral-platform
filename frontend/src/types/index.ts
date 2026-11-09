@@ -84,6 +84,15 @@ export interface UserSummary {
   referralCode?: string | null;
   emailVerifiedAt?: string | null;
   kycVerifiedAt?: string | null;
+  agencyId?: string | null;
+  agencyRole?: AgencyRole | null;
+  agency?: {
+    id: string;
+    name: string;
+    legalName?: string;
+    status: AgencyStatus;
+    role?: AgencyRole;
+  } | null;
 }
 
 export interface ProfileCompletionItem {
@@ -196,6 +205,7 @@ export interface ServiceItem {
   defaultPartnerCommissionBps: number;
   defaultAgentCommissionBps: number;
   isActive: boolean;
+  category?: { id: string; name: string } | null;
 }
 
 export interface LeadStatusHistoryItem {
@@ -344,11 +354,26 @@ export interface AdminOverviewMetrics {
   totalIndependentAgents: number;
   totalAgencies: number;
   totalAgencyMembers: number;
+  verifiedAgencies?: number;
   pendingAgentApprovals: number;
   pendingAgencyApprovals: number;
   pendingKycReviews: number;
+  pendingBankVerifications?: number;
+  unassignedLeads?: number;
+  activeReferralsCount?: number;
   verifiedAccounts: number;
   suspendedAccounts: number;
+}
+
+export interface AdminRecentAuditLog {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId?: string | null;
+  userName: string;
+  userRole: string;
+  ipAddress?: string | null;
+  createdAt: string;
 }
 
 export interface AdminRecentApplication {

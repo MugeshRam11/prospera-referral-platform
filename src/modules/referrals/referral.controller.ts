@@ -124,4 +124,17 @@ export class ReferralController {
       next(error);
     }
   };
+
+  getServices = async (_req: Request, res: Response<ApiResponse>, next: NextFunction): Promise<void> => {
+    try {
+      const result = await this.service.getServices();
+      res.status(200).json({
+        success: true,
+        data: result,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

@@ -2,7 +2,7 @@ import argon2 from 'argon2';
 import crypto from 'crypto';
 import { Role, AccountStatus, OtpPurpose, User, Session } from '@prisma/client';
 import { config } from '../../config';
-import { getAuthRepository, IAuthRepository } from './auth.repository';
+import { getAuthRepository, IAuthRepository, UserWithAgency } from './auth.repository';
 import { getLoginThrottler, ILoginThrottler } from './loginThrottler';
 import { RegisterInput, LoginInput, VerifyOtpInput, ResendOtpInput } from './auth.schemas';
 
@@ -318,7 +318,7 @@ export class AuthService {
   /**
    * Validate an incoming session token with idle timeout (SEC-06) and throttled touch (SEC-08)
    */
-  async validateSession(sessionToken: string): Promise<{ user: User; session: Session } | null> {
+  async validateSession(sessionToken: string): Promise<{ user: UserWithAgency; session: Session } | null> {
     const tokenHash = AuthService.hashSessionToken(sessionToken);
     const result = await this.repo.findSessionByTokenHash(tokenHash);
 
