@@ -376,7 +376,7 @@ export default function SettingsPage() {
   const faqList = [
     {
       q: 'How does Prospera calculate referral commissions?',
-      a: 'Commissions are calculated based on the agreed basis points (BPS) for each institutional service line. Luxury Property acquisitions yield up to 200 BPS (2.0%), Mortgage Brokerage yields 50-75 BPS, and UAE Golden Visa processing provides fixed high-tier payouts upon official clearance and settlement.',
+      a: 'Consult the approved commission terms for your selected service.',
     },
     {
       q: 'What KYC identity documents are required for UAE compliance?',

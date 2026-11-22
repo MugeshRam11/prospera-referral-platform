@@ -62,6 +62,8 @@ export default function AdminOverviewPage() {
     (metrics?.pendingBankVerifications ?? 0) +
     (metrics?.unassignedLeads ?? 0);
 
+  if (errorMsg) return <p role="alert">{errorMsg} <button onClick={loadOverview}>Retry</button></p>;
+  if (!metrics) return <p role="status">Loading organization overview...</p>;
   return (
     <div className="space-y-6">
       {/* 1. OPERATIONS TOP BAR */}
@@ -76,7 +78,7 @@ export default function AdminOverviewPage() {
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Real-time verified data from isolated VPS development database (`prospera_dev`).
+            Organization activity and verification queues.
           </p>
         </div>
 

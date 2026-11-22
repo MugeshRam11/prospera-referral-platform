@@ -22,6 +22,7 @@ router.use(authenticate);
 router.get(
   '/accounts',
   authorize(allRoles, onboardingStatuses),
+  validate(createBankAccountSchema.pick({ agencyId: true }), 'query'),
   (req, res, next) => controller.getBankAccounts(req, res, next)
 );
 

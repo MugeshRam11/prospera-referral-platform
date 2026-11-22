@@ -8,6 +8,9 @@ import {
   validateQuery,
 } from '../../middleware';
 import {
+  followUpSchema,
+  referralIdParamSchema,
+  agencyDecisionSchema,
   createReferralSchema,
   updateReferralSchema,
   transitionStatusSchema,
@@ -18,12 +21,27 @@ import {
 const router = Router();
 const controller = new ReferralController();
 
+router.param('id', (_req, _res, next, id) => {
+  const parsed = referralIdParamSchema.safeParse({ id });
+  next(parsed.success ? undefined : parsed.error);
+});
+router.get('/:id/follow-ups', authenticate, authorize([Role.COORDINATOR, Role.ADMIN, Role.AGENT]), controller.followUps);
+router.post('/:id/follow-ups', authenticate, authorize([Role.COORDINATOR, Role.ADMIN, Role.AGENT]),
+  validateBody(followUpSchema), controller.recordFollowUp);
+
 // 1. Get active services catalog (must precede /:id)
 router.get(
   '/services',
   authenticate,
   controller.getServices
 );
+
+router.patch('/:id/agency-review', authenticate, authorize([Role.AGENT]),
+  validateBody(agencyDecisionSchema), controller.reviewAgencyReferral);
+
+router.get('/follow-ups', authenticate, authorize([Role.ADMIN, Role.COORDINATOR]), controller.upcomingFollowUps);
+router.get('/commissions', authenticate, authorize([Role.AGENT, Role.REFERRAL_PARTNER, Role.ADMIN]), controller.commissions);
+router.get('/assignees', authenticate, authorize([Role.COORDINATOR, Role.ADMIN]), controller.assignees);
 
 // 2. Create a referral/lead (Partners, Agents, Admins)
 router.post(

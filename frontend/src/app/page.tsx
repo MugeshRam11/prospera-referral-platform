@@ -18,25 +18,20 @@ import {
   ArrowRight,
   Sparkles,
 } from 'lucide-react';
-import { MetricsCards } from '../components/MetricsCards';
-import { StatusBadge } from '../components/StatusBadge';
-import { LeadItem, DashboardMetrics, UserSummary } from '../types';
+import { workflowLabel } from '@/lib/catalogue';
+import { LeadItem, ServiceItem, UserSummary } from '../types';
 import { ApiClient } from '../lib/api';
 import heroBg from '../assets/hero-bg.webp';
 
 export default function DashboardPage() {
-  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [services, setServices] = useState<ServiceItem[]>([]);
   const [leads, setLeads] = useState<LeadItem[]>([]);
   const [user, setUser] = useState<UserSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = async () => {
     try {
-      const [m, l, u] = await Promise.all([
-        ApiClient.getDashboardMetrics(),
-        ApiClient.getReferrals(),
-        ApiClient.getMe(),
-      ]);
+      const u = await ApiClient.getMe();
 
       // Intelligent role routing: Redirect specialized personas to their designated portals
       if (u) {
@@ -61,8 +56,9 @@ export default function DashboardPage() {
         }
       }
 
-      setMetrics(m);
-      setLeads(l || []);
+      const [l, catalogue] = await Promise.all([ApiClient.getReferrals(), ApiClient.getServices()]);
+      setLeads(l);
+      setServices(catalogue);
       setUser(u);
     } catch (err) {
       console.error('Error loading dashboard data', err);
@@ -87,59 +83,11 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const openWithdrawModal = () => {
-    window.dispatchEvent(new CustomEvent('prospera_open_withdraw'));
-  };
-
   const openDetailModal = (lead: LeadItem) => {
     window.dispatchEvent(new CustomEvent('prospera_open_detail', { detail: lead }));
   };
 
-  const servicesList = [
-    {
-      title: 'Property & Real Estate',
-      desc: 'Prime UAE residential & commercial acquisitions',
-      icon: Home,
-      iconColor: 'bg-blue-100 text-blue-600',
-      href: '/services',
-    },
-    {
-      title: 'Mortgage Services',
-      desc: 'UAE resident & non-resident financing advisory',
-      icon: Percent,
-      iconColor: 'bg-teal-100 text-teal-600',
-      href: '/services',
-    },
-    {
-      title: 'Golden Visa',
-      desc: '10-Year UAE residency for investors & executives',
-      icon: ShieldCheck,
-      iconColor: 'bg-amber-100 text-amber-600',
-      href: '/services',
-    },
-    {
-      title: 'Corporate Advisory',
-      desc: 'DIFC/ADGM structuring, foundations & M&A',
-      icon: Briefcase,
-      iconColor: 'bg-purple-100 text-purple-600',
-      href: '/services',
-    },
-    {
-      title: 'Bank Account Opening',
-      desc: 'Corporate accounts with Tier-1 UAE banks',
-      icon: CreditCard,
-      iconColor: 'bg-cyan-100 text-cyan-600',
-      href: '/services',
-    },
-    {
-      title: 'Company Formation',
-      desc: 'Mainland & Free Zone commercial licensing',
-      icon: Building2,
-      iconColor: 'bg-orange-100 text-orange-600',
-      href: '/services',
-    },
-  ];
-
+  if (isLoading || !user) return <p role="status">{isLoading ? "Opening dashboard..." : "Dashboard unavailable."}</p>;
   return (
     <div className="space-y-6">
       {/* 1. HERO BANNER */}
@@ -162,7 +110,7 @@ export default function DashboardPage() {
               <span>
                 {user?.agentType === 'AGENCY_MEMBER'
                   ? `Broker • ${user.agency?.name || 'Agency Portal'}`
-                  : 'Independent Licensed Broker'}
+                  : 'Independent Agent'}
               </span>
             </div>
 
@@ -196,21 +144,11 @@ export default function DashboardPage() {
       </div>
 
       {/* 2. LIVE METRICS STAT CARDS */}
-      <MetricsCards
-        metrics={
-          metrics || {
-            totalReferrals: leads.length,
-            activePipelineValue: 0,
-            wonReferralsCount: leads.filter((l) => l.status === 'WON').length,
-            wonReferralsValue: 0,
-            totalEarnedCommission: 0,
-            withdrawableBalance: 0,
-            pendingClearanceCommission: 0,
-            payoutsProcessed: 0,
-          }
-        }
-        onWithdrawClick={openWithdrawModal}
-      />
+      <div className="rounded-2xl border bg-white p-5">
+        <h2 className="font-semibold">Your referral pipeline</h2>
+        <p className="mt-2">{leads.length} referrals / {leads.filter(l => l.status === 'WON').length} won</p>
+        <p className="mt-2 text-sm text-slate-600"><Link className="text-blue-800" href="/commissions">View available commission entries</Link></p>
+      </div>
 
       {/* 3. MAIN DASHBOARD TWO-COLUMN LAYOUT */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -264,13 +202,13 @@ export default function DashboardPage() {
               </Link>
 
               <button
-                onClick={openWithdrawModal}
+                disabled
                 className="bg-white hover:bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 flex flex-col items-center justify-center gap-2 transition-all group"
               >
                 <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 group-hover:scale-105 transition-transform">
                   <CreditCard size={18} />
                 </div>
-                <span className="text-xs font-semibold text-slate-800 text-center">Request Payout</span>
+                <span className="text-xs font-semibold text-slate-800 text-center">Payout requests unavailable</span>
               </button>
             </div>
           </div>
@@ -322,7 +260,7 @@ export default function DashboardPage() {
                           {lead.service?.name || 'UAE Advisory'}
                         </td>
                         <td className="py-3.5">
-                          <StatusBadge status={lead.status} />
+                          {workflowLabel(lead)}
                         </td>
                         <td className="py-3.5 text-slate-500 font-normal">
                           {new Date(lead.createdAt).toLocaleDateString('en-GB', {
@@ -370,27 +308,27 @@ export default function DashboardPage() {
           <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
             <h3 className="text-base sm:text-lg font-bold text-slate-900">Ecosystem Services</h3>
             <p className="text-xs text-slate-500 mt-0.5 mb-4">
-              Accredited solutions across property, banking, and immigration.
+              Active services available for referral.
             </p>
 
             <div className="space-y-2.5">
-              {servicesList.map((srv, idx) => {
-                const Icon = srv.icon;
+              {services.map((srv) => {
+                const Icon = Building2;
                 return (
                   <Link
-                    key={idx}
-                    href={srv.href}
+                    key={srv.id}
+                    href={'/referrals/new?service=' + srv.id}
                     className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50/80 transition-all group"
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${srv.iconColor}`}>
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${'bg-blue-50 text-blue-700'}`}>
                         <Icon size={17} />
                       </div>
                       <div>
                         <h4 className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                          {srv.title}
+                          {srv.name}
                         </h4>
-                        <p className="text-[11px] text-slate-400 leading-tight">{srv.desc}</p>
+                        <p className="text-[11px] text-slate-400 leading-tight">{srv.description}</p>
                       </div>
                     </div>
                     <ChevronRight size={14} className="text-slate-300 group-hover:text-slate-600 transition-colors" />

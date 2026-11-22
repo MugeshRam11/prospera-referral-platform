@@ -14,7 +14,10 @@ import { Prisma } from '@prisma/client';
 
 vi.mock('../src/lib/prisma', () => {
   const mockTx = {
+    auditLog: { create: vi.fn() },
+    $executeRaw: vi.fn(),
     lead: {
+      findFirst: vi.fn(),
       create: vi.fn(),
       findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
@@ -205,6 +208,7 @@ describe('PrismaReferralRepository (Isolated Mocked Delegate Tests)', () => {
       prismaMock._mockTx.lead.findUniqueOrThrow.mockResolvedValue(mockUpdated);
 
       const result = await repository.transitionLeadStatus('lead-1', {
+        revision: 4,
         status: LeadStatus.CONTACTED,
         previousStatus: LeadStatus.ASSIGNED,
         changedById: 'agent-1',
@@ -213,8 +217,8 @@ describe('PrismaReferralRepository (Isolated Mocked Delegate Tests)', () => {
 
       expect(prismaMock.$transaction).toHaveBeenCalled();
       expect(prismaMock._mockTx.lead.update).toHaveBeenCalledWith({
-        where: { id: 'lead-1' },
-        data: { status: LeadStatus.CONTACTED },
+        where: { id: 'lead-1', revision: 4 },
+        data: { status: LeadStatus.CONTACTED, revision: { increment: 1 } },
       });
       expect(prismaMock._mockTx.leadStatusHistory.create).toHaveBeenCalledWith({
         data: {
@@ -237,6 +241,7 @@ describe('PrismaReferralRepository (Isolated Mocked Delegate Tests)', () => {
       prismaMock._mockTx.lead.findUniqueOrThrow.mockResolvedValue(mockLead);
 
       const result = await repository.assignLead('lead-1', {
+        revision: 4,
         coordinatorId: 'coord-1',
         agentId: 'agent-1',
         changedById: 'coord-1',
@@ -246,8 +251,9 @@ describe('PrismaReferralRepository (Isolated Mocked Delegate Tests)', () => {
 
       expect(prismaMock.$transaction).toHaveBeenCalled();
       expect(prismaMock._mockTx.lead.update).toHaveBeenCalledWith({
-        where: { id: 'lead-1' },
+        where: { id: 'lead-1', revision: 4 },
         data: {
+          revision: { increment: 1 },
           coordinator: { connect: { id: 'coord-1' } },
           agent: { connect: { id: 'agent-1' } },
           status: LeadStatus.ASSIGNED,

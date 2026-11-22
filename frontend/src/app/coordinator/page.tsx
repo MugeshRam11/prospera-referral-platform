@@ -32,29 +32,24 @@ export default function CoordinatorDashboardPage() {
   const [leads, setLeads] = useState<LeadItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [followUps, setFollowUps] = useState<Awaited<ReturnType<typeof ApiClient.upcomingFollowUps>>>([]);
 
   // Filters & Tabs
   const [activeTab, setActiveTab] = useState<'QUEUE' | 'IN_PROGRESS' | 'ALL'>('QUEUE');
   const [search, setSearch] = useState('');
 
-  // Status Update Modal
-  const [selectedLead, setSelectedLead] = useState<LeadItem | null>(null);
-  const [newStatus, setNewStatus] = useState<LeadStatus>('CONTACTED');
-  const [transitionNote, setTransitionNote] = useState('');
-  const [actualDealValue, setActualDealValue] = useState<string>('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
   const loadData = React.useCallback(async () => {
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const [u, l] = await Promise.all([
+      const [u, l, tasks] = await Promise.all([
         ApiClient.getMe(),
         ApiClient.getReferrals(),
+        ApiClient.upcomingFollowUps(),
       ]);
       setCurrentUser(u);
       setLeads(l || []);
+      setFollowUps(tasks);
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : 'Unable to load coordinator workspace');
     } finally {
@@ -64,33 +59,9 @@ export default function CoordinatorDashboardPage() {
 
   useEffect(() => {
     loadData();
+    window.addEventListener('prospera_lead_updated', loadData);
+    return () => window.removeEventListener('prospera_lead_updated', loadData);
   }, [loadData]);
-
-  // Handle status update
-  const handleUpdateStatus = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedLead) return;
-    setIsSubmitting(true);
-    setErrorMsg(null);
-    try {
-      const dealVal = actualDealValue ? parseFloat(actualDealValue) : undefined;
-      await ApiClient.updateReferralStatus(
-        selectedLead.id,
-        newStatus,
-        transitionNote.trim() || undefined,
-        dealVal
-      );
-      setSuccessMsg(`Status for ${selectedLead.clientName} updated to ${newStatus}.`);
-      setSelectedLead(null);
-      setTransitionNote('');
-      setActualDealValue('');
-      loadData();
-    } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to update lead status');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const formatAED = (val: number | string | undefined | null) => {
     return new Intl.NumberFormat('en-AE', {
@@ -102,7 +73,7 @@ export default function CoordinatorDashboardPage() {
 
   // Filtered Leads
   const filteredLeads = leads.filter((lead) => {
-    if (activeTab === 'QUEUE' && (lead.status === 'WON' || lead.status === 'LOST' || lead.status === 'CANCELLED')) {
+    if (activeTab === 'QUEUE' && lead.status !== 'SUBMITTED') {
       return false;
     }
     const inProgressStatuses: LeadStatus[] = ['ASSIGNED', 'CONTACTED', 'QUALIFIED', 'PROPOSAL_SENT', 'NEGOTIATION'];
@@ -119,13 +90,15 @@ export default function CoordinatorDashboardPage() {
   });
 
   // Calculate Metrics
-  const queueCount = leads.filter((l) => l.status === 'SUBMITTED' || l.status === 'CONTACTED').length;
+  const queueCount = leads.filter((l) => l.status === 'SUBMITTED').length;
   const inProgressCount = leads.filter((l) => ['ASSIGNED', 'CONTACTED', 'QUALIFIED', 'PROPOSAL_SENT', 'NEGOTIATION'].includes(l.status)).length;
   const wonCount = leads.filter((l) => l.status === 'WON').length;
   const totalVolume = leads
     .filter((l) => l.status === 'WON')
     .reduce((sum, l) => sum + Number(l.actualDealValue || l.expectedDealValue || 0), 0);
 
+  if (errorMsg) return <p role="alert">{errorMsg} <button onClick={loadData}>Retry</button></p>;
+  if (isLoading) return <p role="status">Loading central intake...</p>;
   // Role Gate check
   if (!isLoading && currentUser && currentUser.role !== 'COORDINATOR' && currentUser.role !== 'ADMIN') {
     return (
@@ -186,7 +159,7 @@ export default function CoordinatorDashboardPage() {
               <span>Refresh Queue</span>
             </button>
             <Link
-              href="/admin/referrals"
+              href="/referrals"
               className="px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 shadow-xs transition-colors"
             >
               <span>Platform Pipeline</span>
@@ -228,19 +201,11 @@ export default function CoordinatorDashboardPage() {
         </div>
       </div>
 
-      {/* Notifications */}
-      {successMsg && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={16} className="text-emerald-600" />
-            <span>{successMsg}</span>
-          </div>
-          <button onClick={() => setSuccessMsg(null)} className="text-emerald-600 hover:text-emerald-800">
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
+      <section className="space-y-2 rounded-2xl border bg-white p-5">
+        <h2 className="font-bold">Upcoming follow-ups</h2>
+        {!followUps.length && <p className="text-sm text-slate-600">No scheduled follow-ups in this queue.</p>}
+        {followUps.map(task => <p key={task.id}><time>{task.due}</time> · {task.nextAction} · {task.referenceNo}</p>)}
+      </section>
       {errorMsg && (
         <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-700 flex items-center gap-2">
           <AlertCircle size={16} className="flex-shrink-0" />
@@ -259,7 +224,7 @@ export default function CoordinatorDashboardPage() {
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            Active Queue ({queueCount + inProgressCount})
+            Central intake ({queueCount})
           </button>
           <button
             onClick={() => setActiveTab('IN_PROGRESS')}
@@ -379,26 +344,10 @@ export default function CoordinatorDashboardPage() {
                     </td>
                     <td className="py-3 px-4 text-right">
                       <button
-                        onClick={() => {
-                          setSelectedLead(lead);
-                          setNewStatus(
-                            lead.status === 'SUBMITTED'
-                              ? 'CONTACTED'
-                              : lead.status === 'CONTACTED'
-                              ? 'QUALIFIED'
-                              : lead.status === 'QUALIFIED'
-                              ? 'PROPOSAL_SENT'
-                              : lead.status === 'PROPOSAL_SENT'
-                              ? 'NEGOTIATION'
-                              : 'WON'
-                          );
-                          setActualDealValue(
-                            String(lead.actualDealValue || lead.expectedDealValue || '')
-                          );
-                        }}
+                        onClick={() => window.dispatchEvent(new CustomEvent('prospera_open_detail', { detail: lead }))}
                         className="px-3 py-1 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-colors"
                       >
-                        Update Status
+                        Review referral
                       </button>
                     </td>
                   </tr>
@@ -410,98 +359,7 @@ export default function CoordinatorDashboardPage() {
       )}
 
       {/* Status Transition Modal */}
-      {selectedLead && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
-                  <Headphones size={16} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Progress Deal Status</h3>
-                  <p className="text-[11px] text-slate-500">{selectedLead.clientName}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedLead(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-600"
-              >
-                <X size={18} />
-              </button>
-            </div>
 
-            <form onSubmit={handleUpdateStatus} className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">New Status</label>
-                <select
-                  value={newStatus}
-                  onChange={(e) => setNewStatus(e.target.value as LeadStatus)}
-                  className="w-full px-3 py-2 rounded-xl text-xs border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 font-semibold"
-                >
-                  <option value="CONTACTED">CONTACTED (Client engaged)</option>
-                  <option value="QUALIFIED">QUALIFIED (Client verified)</option>
-                  <option value="PROPOSAL_SENT">PROPOSAL_SENT (Terms delivered)</option>
-                  <option value="NEGOTIATION">NEGOTIATION (Finalizing deal)</option>
-                  <option value="WON">WON (Closed transaction)</option>
-                  <option value="LOST">LOST (Disqualified or declined)</option>
-                </select>
-              </div>
-
-              {newStatus === 'WON' && (
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Actual Deal Value (AED) *
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    placeholder="e.g. 2500000"
-                    value={actualDealValue}
-                    onChange={(e) => setActualDealValue(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl text-xs font-mono border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Entering final deal value will calculate commission shares for the agent and partner.
-                  </p>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Coordinator Activity Note
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Record client feedback, next follow-up milestone, or broker assignment note..."
-                  value={transitionNote}
-                  onChange={(e) => setTransitionNote(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl text-xs border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                />
-              </div>
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setSelectedLead(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-5 py-2 rounded-xl text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Saving...' : 'Apply Status Update'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
-

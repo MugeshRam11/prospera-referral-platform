@@ -1,3 +1,5 @@
+import { requireAgencyManager } from '../agency/agency-access';
+import { AppError } from '../auth/auth.service';
 import { prisma } from '../../lib/prisma';
 import { storePrivateDocument, getDocumentReadStream } from '../../lib/documentStorage';
 import { createAuditLog } from '../../lib/audit';
@@ -8,8 +10,9 @@ export class KycService {
    * Retrieves list of KYC documents for user or agency.
    */
   public async getDocuments(userId: string, agencyId?: string) {
+    if (agencyId) await requireAgencyManager(userId, agencyId);
     return prisma.kycDocument.findMany({
-      where: agencyId ? { agencyId } : { userId },
+      where: agencyId ? { agencyId } : { userId, agencyId: null },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
@@ -37,20 +40,7 @@ export class KycService {
     ipAddress?: string,
     userAgent?: string
   ) {
-    // If agencyId is provided, verify user is owner or admin of that agency
-    if (agencyId) {
-      const membership = await prisma.agencyMember.findFirst({
-        where: {
-          agencyId,
-          userId,
-          role: { in: ['AGENCY_OWNER', 'AGENCY_ADMIN'] },
-        },
-      });
-
-      if (!membership) {
-        throw new Error('Unauthorized: Only agency owners and admins can upload organization documents');
-      }
-    }
+    if (agencyId) await requireAgencyManager(userId, agencyId);
 
     const stored = await storePrivateDocument(file.buffer, file.originalname, file.mimetype);
 
@@ -151,26 +141,12 @@ export class KycService {
     });
 
     if (!document) {
-      throw new Error('Document not found');
+      throw new AppError(404, 'Document not found');
     }
 
-    const isAdmin = currentUser.role === Role.ADMIN;
-    const isOwner = document.userId === currentUser.id;
-
-    let isAgencyAdmin = false;
-    if (document.agencyId) {
-      const membership = await prisma.agencyMember.findFirst({
-        where: {
-          agencyId: document.agencyId,
-          userId: currentUser.id,
-          role: { in: ['AGENCY_OWNER', 'AGENCY_ADMIN'] },
-        },
-      });
-      if (membership) isAgencyAdmin = true;
-    }
-
-    if (!isAdmin && !isOwner && !isAgencyAdmin) {
-      throw new Error('Access denied: You are not authorized to view this document');
+    if (currentUser.role !== Role.ADMIN) {
+      if (document.agencyId) await requireAgencyManager(currentUser.id, document.agencyId);
+      else if (document.userId !== currentUser.id) throw new AppError(403, 'Document access denied');
     }
 
     const streamData = getDocumentReadStream(document.fileKey);
@@ -206,7 +182,7 @@ export class KycService {
     });
 
     if (!existing) {
-      throw new Error('Document not found');
+      throw new AppError(404, 'Document not found');
     }
 
     const updated = await prisma.kycDocument.update({

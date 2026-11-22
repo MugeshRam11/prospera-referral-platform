@@ -758,13 +758,49 @@ export class ApiClient {
     if (params?.search) query.set('search', params.search);
     if (params?.serviceId) query.set('serviceId', params.serviceId);
 
-    try {
-      const res = await this.request<{ items: LeadItem[] }>(`/referrals?${query.toString()}`);
-      return res?.items || [];
-    } catch (err) {
-      console.warn('API error fetching referrals:', err);
-      return [];
+    const leads: LeadItem[] = [];
+    query.set('limit', '100');
+    for (let page = 1; ; page++) {
+      query.set('page', String(page));
+      const res = await this.request<{ items: LeadItem[]; pagination: { totalPages: number } }>('/referrals?' + query);
+      leads.push(...res.items);
+      if (page >= res.pagination.totalPages) return leads;
     }
+  }
+
+  public static async editReferral(id: string, data: {
+    clientName: string; clientPhone: string; clientEmail: string | null; notes: string;
+    expectedDealValue: number; requirements: string;
+  }) {
+    return this.request<LeadItem>('/referrals/' + id, { method: 'PATCH', body: JSON.stringify(data) });
+  }
+
+  public static async agencyReview(id: string, data: { decision: 'approve' } | { decision: 'return'; reason: string }) {
+    return this.request<LeadItem>('/referrals/' + id + '/agency-review', { method: 'PATCH', body: JSON.stringify(data) });
+  }
+
+  public static async upcomingFollowUps() {
+    return this.request<{ id: string; referenceNo: string; nextAction: string; due: string }[]>('/referrals/follow-ups');
+  }
+
+  public static async getFollowUps(id: string) {
+    return this.request<{ id: string; createdAt: string; newValues: { note: string; nextAction: string; due: string } }[]>('/referrals/' + id + '/follow-ups');
+  }
+
+  public static async recordFollowUp(id: string, data: { note: string; nextAction: string; due: string }) {
+    return this.request('/referrals/' + id + '/follow-ups', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  public static async getAssignees() {
+    return this.request<{ id: string; fullName: string }[]>('/referrals/assignees');
+  }
+
+  public static async getOrientation() {
+    return this.request<{ step: number; state: 'active' | 'skipped' | 'complete' }>('/profile/orientation');
+  }
+
+  public static async saveOrientation(step: number, state: 'active' | 'skipped' | 'complete') {
+    return this.request<{ step: number; state: typeof state }>('/profile/orientation', { method: 'PATCH', body: JSON.stringify({ step, state }) });
   }
 
   public static async createReferral(data: {
@@ -775,6 +811,10 @@ export class ApiClient {
     expectedDealValue: number;
     currency?: string;
     notes?: string;
+    consent?: boolean;
+    requirements?: string;
+    demoPropertyId?: string;
+    submissionKey?: string;
     asDraft?: boolean;
   }): Promise<LeadItem> {
     return await this.request<LeadItem>('/referrals', {
@@ -795,11 +835,13 @@ export class ApiClient {
     id: string,
     newStatus: LeadStatus,
     note?: string,
-    actualDealValue?: number
+    actualDealValue?: number,
+    consent?: boolean
   ): Promise<LeadItem> {
     return await this.request<LeadItem>(`/referrals/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({
+        consent,
         status: newStatus,
         transitionNote: note || undefined,
         actualDealValue: actualDealValue || undefined,
@@ -812,6 +854,7 @@ export class ApiClient {
     data: {
       agentId?: string | null;
       coordinatorId?: string | null;
+      expectedRevision?: number;
       assignmentNote?: string;
     }
   ): Promise<LeadItem> {
@@ -844,13 +887,8 @@ export class ApiClient {
     return res || [];
   }
 
-  public static async getCommissions(): Promise<CommissionEntry[]> {
-    try {
-      const res = await this.request<CommissionEntry[]>('/referrals/commissions');
-      return res || [];
-    } catch {
-      return [];
-    }
+  public static async getCommissions() {
+    return this.request<{ id: string; entryType: string; currency: string; amount: string; availableAt: string; lead: { referenceNo: string } }[]>('/referrals/commissions');
   }
 
   public static async getWithdrawals(): Promise<WithdrawalItem[]> {
@@ -883,37 +921,6 @@ export class ApiClient {
   }
 
   public static async getDashboardMetrics(): Promise<DashboardMetrics> {
-    try {
-      const metrics = await this.request<DashboardMetrics>('/referrals/metrics');
-      if (metrics) return metrics;
-    } catch {
-      // Fallback calculation from leads if endpoint not implemented
-    }
-
-    const leads = await this.getReferrals();
-    const wonLeads = leads.filter((l) => l.status === 'WON');
-    const activePipeline = leads.filter(
-      (l) => l.status !== 'WON' && l.status !== 'LOST' && l.status !== 'CANCELLED'
-    );
-
-    const activePipelineValue = activePipeline.reduce(
-      (acc, curr) => acc + Number(curr.expectedDealValue || 0),
-      0
-    );
-    const wonReferralsValue = wonLeads.reduce(
-      (acc, curr) => acc + Number(curr.actualDealValue || curr.expectedDealValue || 0),
-      0
-    );
-
-    return {
-      totalReferrals: leads.length,
-      activePipelineValue,
-      wonReferralsCount: wonLeads.length,
-      wonReferralsValue,
-      totalEarnedCommission: wonReferralsValue * 0.02,
-      withdrawableBalance: wonReferralsValue * 0.02,
-      pendingClearanceCommission: 0,
-      payoutsProcessed: 0,
-    };
+    return this.request<DashboardMetrics>('/referrals/metrics');
   }
 }

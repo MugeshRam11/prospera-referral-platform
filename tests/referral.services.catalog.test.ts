@@ -165,6 +165,7 @@ describe('Referral Service Catalog & Wizard Compliance Tests', () => {
           .post('/api/v1/referrals')
           .set('Authorization', `Bearer ${token}`)
           .send({
+            consent: true,
             serviceId: srv.id,
             clientName: `Client for ${srv.name}`,
             clientPhone,
@@ -189,6 +190,7 @@ describe('Referral Service Catalog & Wizard Compliance Tests', () => {
       const { token } = await createTestUserSession('partner.dup@prospera.ae', Role.REFERRAL_PARTNER);
       const srv = seededServices[0];
       const payload = {
+        consent: true,
         serviceId: srv.id,
         clientName: 'Sheikh Hamdan',
         clientPhone: '+971550099881',
@@ -221,6 +223,7 @@ describe('Referral Service Catalog & Wizard Compliance Tests', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${token}`)
         .send({
+          consent: true,
           serviceId: srv.id,
           clientName: 'Draft Investor',
           clientPhone: '+971509988776',
@@ -242,6 +245,7 @@ describe('Referral Service Catalog & Wizard Compliance Tests', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${token}`)
         .send({
+          consent: true,
           serviceId: srv.id,
           clientName: 'Mortgage Incomplete Lead',
           clientPhone: '+971503344556',
@@ -257,6 +261,7 @@ describe('Referral Service Catalog & Wizard Compliance Tests', () => {
         .patch(`/api/v1/referrals/${leadId}/status`)
         .set('Authorization', `Bearer ${token}`)
         .send({
+          consent: true,
           status: LeadStatus.SUBMITTED,
           transitionNote: 'Completed all required fields and client PDPL consent',
         });
@@ -275,6 +280,7 @@ describe('Referral Service Catalog & Wizard Compliance Tests', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${token}`)
         .send({
+          consent: true,
           serviceId: srv.id,
           clientName: 'Active Client',
           clientPhone: conflictPhone,
@@ -286,6 +292,7 @@ describe('Referral Service Catalog & Wizard Compliance Tests', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${token}`)
         .send({
+          consent: true,
           serviceId: srv.id,
           clientName: 'Duplicate Draft Client',
           clientPhone: conflictPhone,
@@ -299,7 +306,7 @@ describe('Referral Service Catalog & Wizard Compliance Tests', () => {
       const submitRes = await request(app)
         .patch(`/api/v1/referrals/${draftId}/status`)
         .set('Authorization', `Bearer ${token}`)
-        .send({ status: LeadStatus.SUBMITTED });
+        .send({ consent: true, status: LeadStatus.SUBMITTED });
 
       expect(submitRes.status).toBe(409);
       expect(submitRes.body.error.message).toContain('active referral already exists');
@@ -314,6 +321,7 @@ describe('Referral Service Catalog & Wizard Compliance Tests', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${token}`)
         .send({
+          consent: true,
           serviceId: seededServices[0].id,
           clientName: 'Direct Broker Referral',
           clientPhone: '+971501239876',
@@ -332,6 +340,7 @@ describe('Referral Service Catalog & Wizard Compliance Tests', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${token}`)
         .send({
+          consent: true,
           serviceId: seededServices[0].id,
           clientName: 'Coordinator Referral Attempt',
           clientPhone: '+971509988776',
@@ -342,4 +351,3 @@ describe('Referral Service Catalog & Wizard Compliance Tests', () => {
     });
   });
 });
-

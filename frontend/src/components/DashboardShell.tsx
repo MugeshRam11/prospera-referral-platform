@@ -1,142 +1,48 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
-import { CreateReferralModal } from './CreateReferralModal';
 import { ReferralDetailModal } from './ReferralDetailModal';
-import { WithdrawalModal } from './WithdrawalModal';
-import { UserSummary, LeadItem, ServiceItem, BankAccountItem, WithdrawalItem } from '../types';
-import { ApiClient } from '../lib/api';
+import { Orientation } from './Orientation';
+import { ApiClient } from '@/lib/api';
+import type { LeadItem, UserSummary } from '@/types';
 
-interface DashboardShellProps {
-  children: React.ReactNode;
-}
-
-export const DashboardShell: React.FC<DashboardShellProps> = ({ children }) => {
+export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const login = pathname.startsWith('/auth');
   const [user, setUser] = useState<UserSummary | null>(null);
-  const [services, setServices] = useState<ServiceItem[]>([]);
-  const [bankAccounts, setBankAccounts] = useState<BankAccountItem[]>([]);
-  const [withdrawableBalance, setWithdrawableBalance] = useState<number>(0);
-  const [activeLeadsCount, setActiveLeadsCount] = useState<number>(0);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  // Modal States
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
-  const [activeDetailLead, setActiveDetailLead] = useState<LeadItem | null>(null);
-
+  const [lead, setLead] = useState<LeadItem | null>(null);
+  const [mobile, setMobile] = useState(false);
+  const [error, setError] = useState('');
   useEffect(() => {
-    const initData = async () => {
-      try {
-        const u = await ApiClient.getMe();
-        setUser(u);
-
-        const s = await ApiClient.getServices();
-        setServices(s);
-
-        const b = await ApiClient.getBankAccounts();
-        setBankAccounts(b);
-
-        const metrics = await ApiClient.getDashboardMetrics();
-        setWithdrawableBalance(metrics.withdrawableBalance);
-
-        const leads = await ApiClient.getReferrals();
-        setActiveLeadsCount(
-          leads.filter((l) => l.status !== 'WON' && l.status !== 'LOST').length
-        );
-      } catch (err) {
-        console.error('Failed to load initial data', err);
-      }
-    };
-    initData();
-  }, []);
-
-  const handleReferralCreated = async (newLead: LeadItem) => {
-    setActiveLeadsCount((prev) => prev + 1);
-    window.dispatchEvent(new CustomEvent('prospera_referral_created', { detail: newLead }));
-  };
-
-  const handleWithdrawalRequested = async (newWithdrawal: WithdrawalItem) => {
-    const metrics = await ApiClient.getDashboardMetrics();
-    setWithdrawableBalance(metrics.withdrawableBalance);
-    window.dispatchEvent(new CustomEvent('prospera_withdrawal_created', { detail: newWithdrawal }));
-  };
-
+    let active = true;
+    if (login) { setUser(null); setLead(null); return; }
+    ApiClient.getMe().then(u => { if (active) { setUser(u); setError(''); } }).catch(e => {
+      if (!active) return;
+      if (!ApiClient.getToken()) router.replace('/auth/login');
+      else setError(e.message);
+    });
+    return () => { active = false; };
+  }, [login, router]);
   useEffect(() => {
-    const handleOpenDetail = (e: CustomEvent<LeadItem>) => {
-      setActiveDetailLead(e.detail);
-    };
-    const handleOpenWithdrawal = () => {
-      setIsWithdrawModalOpen(true);
-    };
-    const handleOpenCreate = () => {
-      setIsCreateModalOpen(true);
-    };
-
-    return () => {
-      window.removeEventListener('prospera_open_detail' as any, handleOpenDetail as any);
-      window.removeEventListener('prospera_open_withdraw' as any, handleOpenWithdrawal);
-      window.removeEventListener('prospera_open_create' as any, handleOpenCreate);
-    };
+    const open = (e: Event) => setLead((e as CustomEvent<LeadItem>).detail);
+    window.addEventListener('prospera_open_detail', open);
+    return () => window.removeEventListener('prospera_open_detail', open);
   }, []);
-
-  if (pathname && pathname.startsWith('/auth')) {
-    return <main>{children}</main>;
-  }
-
-  return (
-    <div className="min-h-screen bg-[#F8FAFC]">
-      {/* Navy Sidebar with Mobile Drawer support */}
-      <Sidebar
-        user={user}
-        activeReferralCount={activeLeadsCount}
-        isOpenMobile={isMobileMenuOpen}
-        onCloseMobile={() => setIsMobileMenuOpen(false)}
-      />
-
-      {/* Main Workspace Area */}
-      <div className="lg:pl-64 flex flex-col min-h-screen">
-        <Header
-          user={user}
-          withdrawableBalance={withdrawableBalance}
-          onOpenNewReferralModal={() => setIsCreateModalOpen(true)}
-          onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          onSearch={(q) => {
-            window.dispatchEvent(new CustomEvent('prospera_search_query', { detail: q }));
-          }}
-        />
-
-        <main className="flex-1 p-5 sm:p-7 max-w-7xl w-full mx-auto">{children}</main>
-      </div>
-
-      {/* Global Modals */}
-      <CreateReferralModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onReferralCreated={handleReferralCreated}
-        services={services}
-      />
-
-      <ReferralDetailModal
-        lead={activeDetailLead}
-        isOpen={!!activeDetailLead}
-        onClose={() => setActiveDetailLead(null)}
-        onStatusUpdated={(updated) => {
-          setActiveDetailLead(updated);
-          window.dispatchEvent(new CustomEvent('prospera_lead_updated', { detail: updated }));
-        }}
-      />
-
-      <WithdrawalModal
-        isOpen={isWithdrawModalOpen}
-        onClose={() => setIsWithdrawModalOpen(false)}
-        withdrawableBalance={withdrawableBalance}
-        bankAccounts={bankAccounts}
-        onWithdrawalRequested={handleWithdrawalRequested}
-      />
-    </div>
-  );
-};
+  if (login) return <main>{children}</main>;
+  if (!user) return <main className="p-8" role="status">{error || 'Opening your workspace…'}</main>;
+  const restricted = (pathname.startsWith('/admin') && user.role !== 'ADMIN') ||
+    (pathname === '/coordinator' && !['ADMIN', 'COORDINATOR'].includes(user.role)) ||
+    (pathname === '/partner' && user.role !== 'REFERRAL_PARTNER') ||
+    (pathname === '/agency' && !user.agencyId && user.role !== 'ADMIN');
+  return <div className="min-h-screen bg-[#F8FAFC]"><Sidebar user={user} isOpenMobile={mobile} onCloseMobile={() => setMobile(false)}/>
+    <div className="lg:pl-64"><Header user={user} onOpenNewReferralModal={() => router.push('/referrals/new')}
+      onToggleMobileMenu={() => setMobile(!mobile)} onSearch={q => window.dispatchEvent(new CustomEvent('prospera_search_query', { detail: q }))}/>
+      <main className="mx-auto max-w-7xl p-5 sm:p-7"><Orientation key={user.id} user={user}/>{restricted ? <p role="alert">This workspace requires a different role. <a href="/">Open your dashboard</a></p> : children}</main></div>
+    {lead && <ReferralDetailModal key={lead.id} user={user} lead={lead} isOpen onClose={() => setLead(null)} onStatusUpdated={updated => {
+      setLead(updated); window.dispatchEvent(new CustomEvent('prospera_lead_updated', { detail: updated }));
+    }}/>}</div>;
+}

@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { AppError } from '../auth/auth.service';
 import { prisma } from '../../lib/prisma';
 import { createAuditLog } from '../../lib/audit';
 import { AgencyRole, AgencyStatus, AgentType } from '../../types';
@@ -14,7 +15,8 @@ export class AgencyService {
    */
   public async getMyAgency(userId: string) {
     const membership = await prisma.agencyMember.findFirst({
-      where: { userId },
+      where: { userId, status: 'ACTIVE' },
+      orderBy: { joinedAt: 'asc' },
       include: {
         agency: {
           include: {
@@ -108,7 +110,7 @@ export class AgencyService {
               role: m.role,
             })),
         pendingInvitations: isPrivileged ? membership.agency.invitations : [],
-        documents: membership.agency.documents,
+        documents: isPrivileged ? membership.agency.documents : [],
       },
     };
   }
@@ -199,6 +201,7 @@ export class AgencyService {
       where: {
         agencyId,
         userId,
+        status: 'ACTIVE',
         role: { in: [AgencyRole.AGENCY_OWNER, AgencyRole.AGENCY_ADMIN] },
       },
     });
@@ -257,6 +260,7 @@ export class AgencyService {
       where: {
         agencyId,
         userId,
+        status: 'ACTIVE',
         role: { in: [AgencyRole.AGENCY_OWNER, AgencyRole.AGENCY_ADMIN] },
       },
     });
@@ -333,6 +337,10 @@ export class AgencyService {
       throw new Error('This invitation has expired');
     }
 
+    const invitee = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (!invitee || invitee.email.toLowerCase() !== invitation.email.toLowerCase()) {
+      throw new AppError(403, 'This invitation belongs to another account');
+    }
     // Assert user is not already a member
     const existingMembership = await prisma.agencyMember.findFirst({
       where: {
@@ -356,7 +364,7 @@ export class AgencyService {
       });
 
       await tx.agencyInvitation.update({
-        where: { id: invitation.id },
+        where: { id: invitation.id, status: 'PENDING', expiresAt: { gt: new Date() } },
         data: { status: 'ACCEPTED' },
       });
 
@@ -405,6 +413,7 @@ export class AgencyService {
       where: {
         agencyId,
         userId,
+        status: 'ACTIVE',
         role: { in: [AgencyRole.AGENCY_OWNER, AgencyRole.AGENCY_ADMIN] },
       },
     });

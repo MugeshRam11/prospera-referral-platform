@@ -25,6 +25,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { MyAgencyResponse, AgencyMemberInfo, LeadItem, UserSummary } from '../../types';
+import { workflowLabel } from '@/lib/catalogue';
 import { ApiClient } from '../../lib/api';
 
 export default function AgencyPortalPage() {
@@ -66,6 +67,8 @@ export default function AgencyPortalPage() {
 
   useEffect(() => {
     loadAgency();
+    window.addEventListener('prospera_lead_updated', loadAgency);
+    return () => window.removeEventListener('prospera_lead_updated', loadAgency);
   }, [loadAgency]);
 
   const handleSendInvite = async (e: React.FormEvent) => {
@@ -190,7 +193,7 @@ export default function AgencyPortalPage() {
               Brokers & Staff
             </span>
             <div className="text-2xl font-extrabold text-white mt-1 font-mono">
-              {agencyData?.agency?.membersCount || agencyData?.agency?.members?.length || 1}
+              {agencyData?.agency?.membersCount ?? agencyData?.agency?.members?.length ?? 0}
             </div>
             <span className="text-[10px] text-slate-400">Registered members</span>
           </div>
@@ -383,11 +386,11 @@ export default function AgencyPortalPage() {
               <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
                 {teamLeads.map((lead) => (
                   <tr key={lead.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="py-3 px-4 font-bold text-slate-900">{lead.clientName}</td>
+                    <td className="py-3 px-4 font-bold text-slate-900"><button className="text-blue-800 underline" onClick={() => window.dispatchEvent(new CustomEvent('prospera_open_detail', { detail: lead }))}>{lead.clientName}</button></td>
                     <td className="py-3 px-4 text-slate-600">{lead.service?.name || 'General Inquiry'}</td>
                     <td className="py-3 px-4">
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                        {lead.status}
+                        {workflowLabel(lead)}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
@@ -518,4 +521,3 @@ export default function AgencyPortalPage() {
     </div>
   );
 }
-

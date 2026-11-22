@@ -7,6 +7,7 @@ import {
   LeadFilterCriteria,
 } from './referral.repository';
 import {
+  AgencyDecision,
   CreateReferralInput,
   UpdateReferralInput,
   TransitionStatusInput,
@@ -69,53 +70,32 @@ export class ReferralService {
       throw new AppError(404, 'Selected service is invalid or inactive');
     }
 
+    if (input.demoPropertyId && !/property|real-estate/i.test(service.slug)) {
+      throw new AppError(400, 'Choose a real estate service for this illustrative listing');
+    }
     // Check partner's assigned coordinator (auto-routing)
     const partner = await this.repo.findUserById(partnerId);
     const assignedCoordinatorId = partner?.coordinatorId ?? null;
 
-    // Duplicate detection (idempotency guard)
-    // Prevent duplicate lead submissions for same partner + client phone in active status
-    if (!input.asDraft) {
-      const existing = await this.repo.listLeads({
-        filter: {
-          partnerId,
-          search: input.clientPhone,
-        },
-        page: 1,
-        limit: 10,
-        sortBy: 'createdAt',
-        sortOrder: 'desc',
-      });
-
-      const activeStatuses: LeadStatus[] = [
-        LeadStatus.SUBMITTED,
-        LeadStatus.ASSIGNED,
-        LeadStatus.CONTACTED,
-      ];
-
-      const hasDuplicate = existing.items.some(
-        (l) => l.clientPhone === input.clientPhone && activeStatuses.includes(l.status)
-      );
-
-      if (hasDuplicate) {
-        throw new AppError(
-          409,
-          `An active referral already exists for client phone ${input.clientPhone}`
-        );
-      }
-    }
-
     // Generate unique human-readable reference number: REF-YYYY-XXXXXX
     const referenceNo = await this.generateReferenceNo();
-    const initialStatus = input.asDraft ? LeadStatus.DRAFT : LeadStatus.SUBMITTED;
-    let transitionNote = input.asDraft ? 'Draft referral created' : 'Initial referral creation';
-
-    if (actor.agentType === AgentType.AGENCY_MEMBER && (actor.agency || actor.agencyId)) {
-      const agencyName = actor.agency?.name || 'Prestige Luxury Real Estate';
-      transitionNote = `${transitionNote} by agency member ${actor.fullName} [Agency: ${agencyName}]`;
+    const agencyMember = actor.role === Role.AGENT && (actor.agentType === AgentType.AGENCY_MEMBER || !!actor.agencyId);
+    if (agencyMember && !actor.agencyId) throw new AppError(403, 'Active agency membership required');
+    if (partnerId !== actor.id && partner?.agentType === AgentType.AGENCY_MEMBER) {
+      throw new AppError(403, 'Agency referrals must be submitted by the member');
     }
+    if (!input.asDraft && !input.consent) throw new AppError(400, 'Confirm client consent before submission');
+    const pending = agencyMember && !input.asDraft;
+    const initialStatus = input.asDraft || pending ? LeadStatus.DRAFT : LeadStatus.SUBMITTED;
+    const transitionNote = pending ? 'Submitted for agency review' : input.asDraft ? 'Draft referral created' : 'Submitted to Prospera';
 
     return this.repo.createLead({
+      requirements: input.requirements,
+      demoPropertyId: input.demoPropertyId,
+      submissionKey: input.submissionKey,
+      originatingAgencyId: agencyMember ? actor.agencyId : null,
+      agencyReviewStage: pending ? 'PENDING_AGENCY_APPROVAL' : null,
+      consentAt: input.consent ? new Date() : null,
       referenceNo,
       partnerId,
       coordinatorId: assignedCoordinatorId,
@@ -188,6 +168,7 @@ export class ReferralService {
         filter.userId = actor.id;
       }
     } else if (actor.role === Role.COORDINATOR) {
+      filter.intakeCoordinatorId = actor.id;
       // Coordinator sees leads where coordinatorId matches, or can view unassigned leads
       // If coordinator specifically filters, allow it, otherwise default to their scope
     }
@@ -231,6 +212,7 @@ export class ReferralService {
       serviceId: query.serviceId,
       search: query.search,
       partnerId: actor.role === Role.REFERRAL_PARTNER ? actor.id : undefined,
+      intakeCoordinatorId: actor.role === Role.COORDINATOR ? actor.id : undefined,
       coordinatorId: actor.role === Role.COORDINATOR ? actor.id : undefined,
       userId: actor.role === Role.AGENT ? actor.id : undefined,
     };
@@ -267,6 +249,12 @@ export class ReferralService {
       throw new AppError(404, 'Referral not found');
     }
 
+    this.assertReadAccess(lead, actor);
+    if (lead.agencyReviewStage === 'PENDING_AGENCY_APPROVAL' ||
+        (lead.originatingAgencyId && lead.status === 'DRAFT' && lead.partnerId !== actor.id) ||
+        (lead.agencyReviewStage === 'AGENCY_APPROVED' && actor.id === lead.partnerId)) {
+      throw new AppError(403, 'Only your draft or returned agency referral can be edited');
+    }
     // Ownership & permission boundaries
     const isSubmitter = lead.partnerId === actor.id;
     if (actor.role === Role.REFERRAL_PARTNER || (actor.role === Role.AGENT && isSubmitter)) {
@@ -293,6 +281,8 @@ export class ReferralService {
       }
       // Handling agents can only update notes
       if (
+        input.requirements !== undefined ||
+        input.actualDealValue !== undefined ||
         input.clientName !== undefined ||
         input.clientEmail !== undefined ||
         input.clientPhone !== undefined ||
@@ -315,6 +305,8 @@ export class ReferralService {
     }
 
     return this.repo.updateLead(id, {
+      revision: lead.revision,
+      requirements: input.requirements,
       clientName: input.clientName,
       clientEmail: input.clientEmail,
       clientPhone: input.clientPhone,
@@ -337,6 +329,21 @@ export class ReferralService {
       throw new AppError(404, 'Referral not found');
     }
 
+    this.assertReadAccess(lead, actor);
+    if (lead.agencyReviewStage === 'PENDING_AGENCY_APPROVAL') {
+      throw new AppError(403, 'Agency review is required');
+    }
+    const submittingDraft = lead.status === 'DRAFT' && input.status === 'SUBMITTED';
+    const agencySubmission = submittingDraft && (!!lead.originatingAgencyId ||
+      actor.agentType === AgentType.AGENCY_MEMBER || !!actor.agencyId);
+    if (agencySubmission && (!actor.agencyId || (lead.originatingAgencyId && lead.originatingAgencyId !== actor.agencyId))) {
+      throw new AppError(403, 'An active membership of the originating agency is required');
+    }
+    if (lead.status === 'DRAFT' && input.status === 'SUBMITTED' && (lead.partnerId !== actor.id || !input.consent)) {
+      throw new AppError(403, 'Only the submitter can confirm consent and submit the draft');
+    }
+    if (input.status === 'ASSIGNED') throw new AppError(400, 'Use the assignment action to choose an agent');
+    if (input.actualDealValue != null && input.status !== 'WON') throw new AppError(400, 'Actual value requires a won referral');
     const previousStatus = lead.status;
     const targetStatus = input.status;
 
@@ -439,31 +446,6 @@ export class ReferralService {
       );
     }
 
-    // Idempotency / Duplicate check when submitting from DRAFT
-    if (previousStatus === LeadStatus.DRAFT && targetStatus === LeadStatus.SUBMITTED) {
-      const activeStatuses: LeadStatus[] = [
-        LeadStatus.SUBMITTED,
-        LeadStatus.ASSIGNED,
-        LeadStatus.CONTACTED,
-      ];
-      const existing = await this.repo.listLeads({
-        filter: { partnerId: lead.partnerId, search: lead.clientPhone },
-        page: 1,
-        limit: 10,
-        sortBy: 'createdAt',
-        sortOrder: 'desc',
-      });
-      const hasDuplicate = existing.items.some(
-        (l) => l.id !== lead.id && l.clientPhone === lead.clientPhone && activeStatuses.includes(l.status)
-      );
-      if (hasDuplicate) {
-        throw new AppError(
-          409,
-          `An active referral already exists for client phone ${lead.clientPhone}`
-        );
-      }
-    }
-
     // WON transition setup
     let wonAt: Date | null = null;
     let actualDealValue = input.actualDealValue ?? lead.actualDealValue;
@@ -477,7 +459,11 @@ export class ReferralService {
     }
 
     return this.repo.transitionLeadStatus(id, {
-      status: targetStatus,
+      revision: lead.revision,
+      status: agencySubmission ? LeadStatus.DRAFT : targetStatus,
+      originatingAgencyId: agencySubmission ? actor.agencyId! : undefined,
+      agencyReviewStage: agencySubmission ? 'PENDING_AGENCY_APPROVAL' : undefined,
+      consentAt: input.consent && targetStatus === 'SUBMITTED' ? new Date() : undefined,
       previousStatus,
       changedById: actor.id,
       transitionNote: input.transitionNote,
@@ -491,6 +477,24 @@ export class ReferralService {
   /**
    * Assign or reassign a referral to Coordinator or Agent
    */
+  async reviewAgencyReferral(id: string, input: AgencyDecision, actor: AuthenticatedUser) {
+    const lead = await this.getReferralById(id, actor);
+    if (actor.role !== Role.AGENT || !actor.agencyId || actor.agencyId !== lead.originatingAgencyId ||
+        actor.id === lead.partnerId || (actor.agencyRole !== AgencyRole.AGENCY_ADMIN && actor.agencyRole !== AgencyRole.AGENCY_OWNER)) {
+      throw new AppError(403, 'An agency owner or administrator must review a referral from a different member');
+    }
+    if (lead.agencyReviewStage !== 'PENDING_AGENCY_APPROVAL' || lead.status !== 'DRAFT' || !lead.consentAt) {
+      throw new AppError(409, 'Referral is not awaiting agency review with recorded consent');
+    }
+    const approved = input.decision === 'approve';
+    return this.repo.transitionLeadStatus(id, {
+      revision: lead.revision, changedById: actor.id, previousStatus: lead.status,
+      status: approved ? LeadStatus.SUBMITTED : LeadStatus.DRAFT,
+      agencyReviewStage: approved ? 'AGENCY_APPROVED' : 'AGENCY_CHANGES_REQUESTED',
+      transitionNote: approved ? 'Referral approved and forwarded to Prospera' : input.reason,
+    });
+  }
+
   async assignReferral(
     id: string,
     input: AssignReferralInput,
@@ -505,6 +509,8 @@ export class ReferralService {
       throw new AppError(404, 'Referral not found');
     }
 
+    this.assertReadAccess(lead, actor);
+    if (lead.status === 'DRAFT') throw new AppError(409, 'Referral has not entered Prospera intake');
     const terminalStatuses: LeadStatus[] = [
       LeadStatus.WON,
       LeadStatus.LOST,
@@ -514,6 +520,17 @@ export class ReferralService {
       throw new AppError(400, `Cannot assign referral in terminal '${lead.status}' status`);
     }
 
+    if (actor.role === Role.COORDINATOR && input.coordinatorId !== undefined && input.coordinatorId !== actor.id) {
+      throw new AppError(403, 'Coordinators can claim intake only for their own desk');
+    }
+    if (input.expectedRevision !== undefined && input.expectedRevision !== lead.revision) {
+      throw new AppError(409, 'Referral changed. Refresh and review before assigning.');
+    }
+    if (lead.agentId && input.agentId !== undefined && input.agentId !== lead.agentId &&
+        (!input.agentId || !input.assignmentNote?.trim() || input.expectedRevision === undefined)) {
+      throw new AppError(409, 'Reassignment requires a replacement agent, current revision and reason');
+    }
+    if (input.agentId === lead.agentId && (input.coordinatorId ?? lead.coordinatorId) === lead.coordinatorId) return lead;
     // Validate coordinator target
     if (input.coordinatorId) {
       const coordinator = await this.repo.findUserById(input.coordinatorId);
@@ -532,6 +549,7 @@ export class ReferralService {
       if (
         !agent ||
         agent.role !== Role.AGENT ||
+        agent.agentType !== AgentType.INDEPENDENT ||
         agent.accountStatus !== AccountStatus.ACTIVE
       ) {
         throw new AppError(400, 'Assigned sales agent is invalid, inactive, or not an active agent');
@@ -540,7 +558,7 @@ export class ReferralService {
 
     // If status is currently SUBMITTED, auto-advance to ASSIGNED
     let statusChange: { previousStatus: LeadStatus; newStatus: LeadStatus } | undefined;
-    if (lead.status === LeadStatus.SUBMITTED && (input.agentId || input.coordinatorId)) {
+    if (lead.status === LeadStatus.SUBMITTED && input.agentId) {
       statusChange = {
         previousStatus: LeadStatus.SUBMITTED,
         newStatus: LeadStatus.ASSIGNED,
@@ -548,7 +566,8 @@ export class ReferralService {
     }
 
     return this.repo.assignLead(id, {
-      coordinatorId: input.coordinatorId,
+      revision: lead.revision,
+      coordinatorId: actor.role === Role.COORDINATOR ? actor.id : input.coordinatorId,
       agentId: input.agentId,
       changedById: actor.id,
       transitionNote: input.assignmentNote ?? 'Referral assigned',
@@ -576,6 +595,9 @@ export class ReferralService {
    * Enforce read access permissions
    */
   private assertReadAccess(lead: LeadWithDetails, actor: AuthenticatedUser): void {
+    if (actor.role === Role.COORDINATOR && (lead.status === 'DRAFT' || (lead.coordinatorId && lead.coordinatorId !== actor.id))) {
+      throw new AppError(404, 'Referral not found');
+    }
     if (actor.role === Role.ADMIN || actor.role === Role.COORDINATOR) {
       return;
     }
@@ -599,7 +621,7 @@ export class ReferralService {
         (actor.agencyRole === AgencyRole.AGENCY_OWNER || actor.agencyRole === AgencyRole.AGENCY_ADMIN) &&
         actor.agencyId
       ) {
-        const leadAgencyId = lead.partner?.agencyId ?? lead.partner?.agency?.id;
+        const leadAgencyId = lead.originatingAgencyId;
         if (leadAgencyId && leadAgencyId === actor.agencyId) {
           return;
         }

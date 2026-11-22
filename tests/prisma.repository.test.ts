@@ -212,6 +212,8 @@ describe('PrismaAuthRepository (Isolated Mocked Delegate Tests - SEC-07)', () =>
           user: {
             include: {
               agencyMemberships: {
+                where: { status: 'ACTIVE' },
+                orderBy: { joinedAt: 'asc' },
                 include: {
                   agency: true,
                 },

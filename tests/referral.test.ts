@@ -87,6 +87,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${token}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Ahmed Al Mansoori',
           clientEmail: 'ahmed@client.com',
@@ -119,6 +120,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${token}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Rashid Khan',
           clientPhone: '+971509998877',
@@ -140,6 +142,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Client Attempt',
           clientPhone: '+971507777777',
@@ -157,6 +160,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
       const { token } = await createTestUserSession('partner.dup@prospera.ae', Role.REFERRAL_PARTNER);
 
       const payload = {
+        consent: true,
         serviceId: activeServiceId,
         clientName: 'Duplicate Lead Client',
         clientPhone: '+971551112233',
@@ -203,6 +207,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${token}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Invalid Deal Val',
           clientPhone: '+971501112222',
@@ -224,6 +229,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${token}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Client Name',
           clientPhone: '+971501234567',
@@ -240,6 +246,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${token}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Agent Direct Intake',
           clientPhone: '+971501234567',
@@ -258,6 +265,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${token}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Coordinator Intake Attempt',
           clientPhone: '+971509998877',
@@ -279,6 +287,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Owner Lead',
           clientPhone: '+971501110000',
@@ -304,6 +313,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerAToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Partner A Secret Lead',
           clientPhone: '+971501119999',
@@ -329,6 +339,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Unassigned Lead',
           clientPhone: '+971504443322',
@@ -352,6 +363,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Admin Accessible Lead',
           clientPhone: '+971508881122',
@@ -381,17 +393,17 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
       await request(app)
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${token1}`)
-        .send({ serviceId: activeServiceId, clientName: 'P1 Client A', clientPhone: '+971501000001', expectedDealValue: 10000 });
+        .send({ consent: true, serviceId: activeServiceId, clientName: 'P1 Client A', clientPhone: '+971501000001', expectedDealValue: 10000 });
       await request(app)
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${token1}`)
-        .send({ serviceId: activeServiceId, clientName: 'P1 Client B', clientPhone: '+971501000002', expectedDealValue: 20000 });
+        .send({ consent: true, serviceId: activeServiceId, clientName: 'P1 Client B', clientPhone: '+971501000002', expectedDealValue: 20000 });
 
       // Create 1 lead for Partner 2
       await request(app)
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${token2}`)
-        .send({ serviceId: activeServiceId, clientName: 'P2 Client C', clientPhone: '+971502000001', expectedDealValue: 30000 });
+        .send({ consent: true, serviceId: activeServiceId, clientName: 'P2 Client C', clientPhone: '+971502000001', expectedDealValue: 30000 });
 
       // Partner 1 list
       const listRes1 = await request(app)
@@ -424,6 +436,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
           .post('/api/v1/referrals')
           .set('Authorization', `Bearer ${partnerToken}`)
           .send({
+            consent: true,
             serviceId: activeServiceId,
             clientName: `Paged Client ${i}`,
             clientPhone: `+97150900000${i}`,
@@ -460,6 +473,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'My Direct Lead',
           clientPhone: '+971503332211',
@@ -487,6 +501,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Initial Name',
           clientPhone: '+971501112233',
@@ -515,6 +530,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Protected Test',
           clientPhone: '+971501239999',
@@ -544,6 +560,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Advancing Lead',
           clientPhone: '+971501234455',
@@ -580,6 +597,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Cancelable Lead',
           clientPhone: '+971501112288',
@@ -607,6 +625,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Self-Award Attempt',
           clientPhone: '+971501114444',
@@ -634,6 +653,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Progressing Lead',
           clientPhone: '+971505556677',
@@ -709,6 +729,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Direct Won Test',
           clientPhone: '+971501112299',
@@ -741,6 +762,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Assignment Test Lead',
           clientPhone: '+971508889911',
@@ -772,6 +794,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Partner Cannot Assign',
           clientPhone: '+971501112200',
@@ -796,6 +819,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Bad Agent Target',
           clientPhone: '+971507773344',
@@ -828,6 +852,7 @@ describe('Referral Management Module (Unit Tests with In-Memory Repository)', ()
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'History Audit Client',
           clientPhone: '+971501112233',

@@ -19,7 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { LeadItem, ServiceItem, LeadStatus } from '@/types';
-import { StatusBadge } from '@/components/StatusBadge';
+import { workflowLabel } from '@/lib/catalogue';
 import { ApiClient } from '@/lib/api';
 import { formatAED } from '@/lib/utils';
 
@@ -30,15 +30,17 @@ export default function ReferralsPage() {
   const [selectedService, setSelectedService] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'value-desc' | 'value-asc'>('date-desc');
+  const [failure, setFailure] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchLeads = async () => {
     try {
       const [l, s] = await Promise.all([ApiClient.getReferrals(), ApiClient.getServices()]);
+      setFailure(false);
       setLeads(l);
       setServices(s);
     } catch (err) {
-      console.error('Failed to load referrals', err);
+      setFailure(true);
     } finally {
       setIsLoading(false);
     }
@@ -72,7 +74,7 @@ export default function ReferralsPage() {
   const filteredLeads = leads
     .filter((lead) => {
       // Status Filter
-      if (statusFilter !== 'ALL' && lead.status !== statusFilter) {
+      if (statusFilter !== 'ALL' && (statusFilter === 'PENDING_AGENCY_APPROVAL' ? lead.agencyReviewStage !== statusFilter : lead.status !== statusFilter)) {
         return false;
       }
       // Service Filter
@@ -104,6 +106,7 @@ export default function ReferralsPage() {
       return valA - valB;
     });
 
+  if (failure) return <p role="alert">Referral queue unavailable. <button onClick={fetchLeads}>Retry</button></p>;
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -171,7 +174,8 @@ export default function ReferralsPage() {
         <div className="flex gap-2 flex-wrap pt-2 border-t border-slate-100">
           {[
             { label: 'All Leads', value: 'ALL', count: leads.length },
-            { label: 'Submitted', value: 'SUBMITTED', count: leads.filter((l) => l.status === 'SUBMITTED').length },
+            { label: 'Pending agency review', value: 'PENDING_AGENCY_APPROVAL', count: leads.filter(l => l.agencyReviewStage === 'PENDING_AGENCY_APPROVAL').length },
+            { label: 'Prospera review', value: 'SUBMITTED', count: leads.filter((l) => l.status === 'SUBMITTED').length },
             { label: 'Assigned', value: 'ASSIGNED', count: leads.filter((l) => l.status === 'ASSIGNED').length },
             { label: 'Qualified', value: 'QUALIFIED', count: leads.filter((l) => l.status === 'QUALIFIED').length },
             { label: 'Proposal Sent', value: 'PROPOSAL_SENT', count: leads.filter((l) => l.status === 'PROPOSAL_SENT').length },
@@ -248,11 +252,11 @@ export default function ReferralsPage() {
                       {formatAED(lead.actualDealValue || lead.expectedDealValue)}
                     </td>
                     <td className="py-4 px-5 text-xs text-slate-600">
-                      <div>Agent: <strong>{lead.agent?.fullName || 'Senior Desk'}</strong></div>
-                      <div className="text-slate-400">Coord: {lead.coordinator?.fullName || 'Rashid Al Nuaimi'}</div>
+                      <div>Agent: <strong>{lead.agent?.fullName || 'Unassigned'}</strong></div>
+                      <div className="text-slate-400">Coord: {lead.coordinator?.fullName || 'Unassigned'}</div>
                     </td>
                     <td className="py-4 px-5">
-                      <StatusBadge status={lead.status} />
+                      {workflowLabel(lead)}
                     </td>
                     <td className="py-4 px-5 text-xs text-slate-500">
                       {new Date(lead.createdAt).toLocaleDateString()}

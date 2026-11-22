@@ -1,4 +1,4 @@
-import { Lead, LeadStatus, LeadStatusHistory, Service, User, Prisma, Agency, AgentType } from '@prisma/client';
+import { AgencyReviewStage, Lead, LeadStatus, LeadStatusHistory, Service, User, Prisma, Agency, AgentType } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import crypto from 'crypto';
 
@@ -36,6 +36,7 @@ export interface LeadFilterCriteria {
   coordinatorId?: string;
   agentId?: string;
   agencyId?: string;
+  intakeCoordinatorId?: string;
   userId?: string;
   status?: LeadStatus;
   serviceId?: string;
@@ -51,6 +52,12 @@ export interface ListLeadsParams {
 }
 
 export interface CreateLeadRecordInput {
+  demoPropertyId?: string;
+  submissionKey?: string;
+  requirements?: string;
+  agencyReviewStage?: AgencyReviewStage | null;
+  originatingAgencyId?: string | null;
+  consentAt?: Date | null;
   referenceNo: string;
   partnerId: string;
   coordinatorId?: string | null;
@@ -68,6 +75,8 @@ export interface CreateLeadRecordInput {
 }
 
 export interface UpdateLeadRecordInput {
+  requirements?: string;
+  revision?: number;
   clientName?: string;
   clientEmail?: string | null;
   clientPhone?: string;
@@ -77,6 +86,10 @@ export interface UpdateLeadRecordInput {
 }
 
 export interface TransitionStatusRecordInput {
+  originatingAgencyId?: string;
+  agencyReviewStage?: AgencyReviewStage;
+  consentAt?: Date;
+  revision?: number;
   status: LeadStatus;
   previousStatus: LeadStatus;
   changedById: string;
@@ -88,6 +101,7 @@ export interface TransitionStatusRecordInput {
 }
 
 export interface AssignLeadRecordInput {
+  revision?: number;
   coordinatorId?: string | null;
   agentId?: string | null;
   changedById: string;
@@ -121,6 +135,25 @@ export interface IReferralRepository {
   ): User;
 }
 
+const closedStatuses: LeadStatus[] = ['WON', 'LOST', 'CANCELLED'];
+
+function duplicateError() {
+  return Object.assign(new Error('An active referral already exists for this client phone.'), { statusCode: 409 });
+}
+
+// Serialize submissions for one partner and phone, including submissions from separate drafts.
+async function checkSubmission(tx: Prisma.TransactionClient, partnerId: string, phone: string, except?: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${partnerId + ':' + phone}, 0))`;
+  const duplicate = await tx.lead.findFirst({
+    where: {
+      partnerId, clientPhone: phone, id: except ? { not: except } : undefined,
+      OR: [{ status: { notIn: ['DRAFT', ...closedStatuses] } }, { agencyReviewStage: 'PENDING_AGENCY_APPROVAL' }],
+    },
+    select: { id: true },
+  });
+  if (duplicate) throw duplicateError();
+}
+
 export class PrismaReferralRepository implements IReferralRepository {
   private readonly leadInclude = {
     partner: {
@@ -131,6 +164,8 @@ export class PrismaReferralRepository implements IReferralRepository {
         companyName: true,
         agentType: true,
         agencyMemberships: {
+          where: { status: 'ACTIVE' },
+          orderBy: { joinedAt: 'asc' as const },
           include: {
             agency: { select: { id: true, name: true, legalName: true, status: true } },
           },
@@ -145,6 +180,8 @@ export class PrismaReferralRepository implements IReferralRepository {
         email: true,
         agentType: true,
         agencyMemberships: {
+          where: { status: 'ACTIVE' },
+          orderBy: { joinedAt: 'asc' as const },
           include: {
             agency: { select: { id: true, name: true, legalName: true, status: true } },
           },
@@ -219,6 +256,9 @@ export class PrismaReferralRepository implements IReferralRepository {
     return prisma.$transaction(async (tx) => {
       const initialStatus = data.status ?? LeadStatus.SUBMITTED;
 
+      if (initialStatus !== 'DRAFT' || data.agencyReviewStage === 'PENDING_AGENCY_APPROVAL') {
+        await checkSubmission(tx, data.partnerId, data.clientPhone);
+      }
       const createdLead = await tx.lead.create({
         data: {
           referenceNo: data.referenceNo,
@@ -233,6 +273,13 @@ export class PrismaReferralRepository implements IReferralRepository {
           currency: data.currency ?? 'AED',
           notes: data.notes ?? null,
           status: initialStatus,
+          demoPropertyId: data.demoPropertyId ?? null,
+          submissionKey: data.submissionKey ?? null,
+          requirements: data.requirements ?? null,
+          originatingAgencyId: data.originatingAgencyId ?? null,
+          agencyReviewStage: data.agencyReviewStage ?? null,
+          consentAt: data.consentAt ?? null,
+          revision: 0,
         },
       });
 
@@ -241,11 +288,15 @@ export class PrismaReferralRepository implements IReferralRepository {
           leadId: createdLead.id,
           changedById: data.changedById,
           previousStatus: null,
-          newStatus: initialStatus,
+          newStatus: data.agencyReviewStage ?? initialStatus,
           transitionNote: data.transitionNote ?? 'Initial referral submission',
         },
       });
 
+      await tx.auditLog.create({ data: {
+        actorUserId: data.changedById, entityType: 'LEAD', entityId: createdLead.id,
+        action: 'REFERRAL_CREATED', newValues: { referenceNo: data.referenceNo, stage: data.agencyReviewStage ?? initialStatus },
+      } });
       const fullLead = await tx.lead.findUniqueOrThrow({
         where: { id: createdLead.id },
         include: this.leadInclude,
@@ -290,11 +341,13 @@ export class PrismaReferralRepository implements IReferralRepository {
       ];
     }
     if (params.filter.agencyId) {
-      where.partner = {
-        agencyMemberships: {
-          some: { agencyId: params.filter.agencyId },
-        },
-      };
+      where.originatingAgencyId = params.filter.agencyId;
+    }
+    if (params.filter.intakeCoordinatorId) {
+      where.AND = [
+        { status: { not: LeadStatus.DRAFT } },
+        { OR: [{ coordinatorId: null }, { coordinatorId: params.filter.intakeCoordinatorId }] },
+      ];
     }
     if (params.filter.status) {
       where.status = params.filter.status;
@@ -304,12 +357,12 @@ export class PrismaReferralRepository implements IReferralRepository {
     }
     if (params.filter.search) {
       const search = params.filter.search;
-      where.OR = [
+      where.AND = [...(Array.isArray(where.AND) ? where.AND : []), { OR: [
         { clientName: { contains: search, mode: 'insensitive' } },
         { clientPhone: { contains: search, mode: 'insensitive' } },
         { clientEmail: { contains: search, mode: 'insensitive' } },
         { referenceNo: { contains: search, mode: 'insensitive' } },
-      ];
+      ] }];
     }
 
     const skip = (params.page - 1) * params.limit;
@@ -335,6 +388,7 @@ export class PrismaReferralRepository implements IReferralRepository {
   async updateLead(id: string, data: UpdateLeadRecordInput): Promise<LeadWithDetails> {
     const updateData: Prisma.LeadUpdateInput = {};
 
+    if (data.requirements !== undefined) updateData.requirements = data.requirements;
     if (data.clientName !== undefined) updateData.clientName = data.clientName;
     if (data.clientEmail !== undefined) updateData.clientEmail = data.clientEmail;
     if (data.clientPhone !== undefined) updateData.clientPhone = data.clientPhone;
@@ -348,8 +402,8 @@ export class PrismaReferralRepository implements IReferralRepository {
     if (data.notes !== undefined) updateData.notes = data.notes;
 
     const updated = await prisma.lead.update({
-      where: { id },
-      data: updateData,
+      where: { id, revision: data.revision },
+      data: { ...updateData, revision: { increment: 1 } },
       include: this.leadInclude,
     });
     return this.formatLead(updated);
@@ -357,8 +411,15 @@ export class PrismaReferralRepository implements IReferralRepository {
 
   async transitionLeadStatus(id: string, transition: TransitionStatusRecordInput): Promise<LeadWithDetails> {
     return prisma.$transaction(async (tx) => {
+      if (transition.previousStatus === 'DRAFT' && (transition.status === 'SUBMITTED' || transition.agencyReviewStage === 'PENDING_AGENCY_APPROVAL')) {
+        const current = await tx.lead.findUniqueOrThrow({ where: { id }, select: { partnerId: true, clientPhone: true } });
+        await checkSubmission(tx, current.partnerId, current.clientPhone, id);
+      }
       const updatePayload: Prisma.LeadUpdateInput = {
         status: transition.status,
+        ...(transition.originatingAgencyId && { originatingAgencyId: transition.originatingAgencyId }),
+        ...(transition.agencyReviewStage && { agencyReviewStage: transition.agencyReviewStage }),
+        ...(transition.consentAt && { consentAt: transition.consentAt }),
       };
 
       if (transition.wonAt !== undefined) {
@@ -377,8 +438,8 @@ export class PrismaReferralRepository implements IReferralRepository {
       }
 
       const updatedLead = await tx.lead.update({
-        where: { id },
-        data: updatePayload,
+        where: { id, revision: transition.revision },
+        data: { ...updatePayload, revision: { increment: 1 } },
       });
 
       await tx.leadStatusHistory.create({
@@ -386,11 +447,16 @@ export class PrismaReferralRepository implements IReferralRepository {
           leadId: updatedLead.id,
           changedById: transition.changedById,
           previousStatus: transition.previousStatus,
-          newStatus: transition.status,
+          newStatus: transition.agencyReviewStage ?? transition.status,
           transitionNote: transition.transitionNote ?? null,
         },
       });
 
+      await tx.auditLog.create({ data: {
+        actorUserId: transition.changedById, entityType: 'LEAD', entityId: id,
+        action: 'REFERRAL_STAGE_CHANGED', oldValues: { status: transition.previousStatus },
+        newValues: { status: transition.status, stage: transition.agencyReviewStage ?? transition.status },
+      } });
       const fullLead = await tx.lead.findUniqueOrThrow({
         where: { id },
         include: this.leadInclude,
@@ -418,8 +484,8 @@ export class PrismaReferralRepository implements IReferralRepository {
       }
 
       const updatedLead = await tx.lead.update({
-        where: { id },
-        data: updatePayload,
+        where: { id, revision: assignment.revision },
+        data: { ...updatePayload, revision: { increment: 1 } },
       });
 
       if (assignment.statusChange || assignment.transitionNote) {
@@ -434,6 +500,10 @@ export class PrismaReferralRepository implements IReferralRepository {
         });
       }
 
+      await tx.auditLog.create({ data: {
+        actorUserId: assignment.changedById, entityType: 'LEAD', entityId: id, action: 'REFERRAL_ASSIGNED',
+        newValues: { agentId: updatedLead.agentId, coordinatorId: updatedLead.coordinatorId, reason: assignment.transitionNote ?? null },
+      } });
       const fullLead = await tx.lead.findUniqueOrThrow({
         where: { id },
         include: this.leadInclude,
@@ -568,9 +638,22 @@ export class InMemoryReferralRepository implements IReferralRepository {
     return this.users.get(id) ?? null;
   }
 
+  private checkSubmission(partnerId: string, phone: string, except?: string) {
+    for (const lead of this.leads.values()) {
+      if (lead.id !== except && lead.partnerId === partnerId && lead.clientPhone === phone &&
+          (!closedStatuses.includes(lead.status) && lead.status !== 'DRAFT' || lead.agencyReviewStage === 'PENDING_AGENCY_APPROVAL')) {
+        throw duplicateError();
+      }
+    }
+  }
+
   async createLead(data: CreateLeadRecordInput): Promise<LeadWithDetails> {
+    if (data.submissionKey && [...this.leads.values()].some(l => l.partnerId === data.partnerId && l.submissionKey === data.submissionKey)) {
+      throw Object.assign(new Error('Referral already saved. Open it from your referrals.'), { statusCode: 409 });
+    }
     const id = crypto.randomUUID();
     const initialStatus = data.status ?? LeadStatus.SUBMITTED;
+    if (initialStatus !== 'DRAFT' || data.agencyReviewStage === 'PENDING_AGENCY_APPROVAL') this.checkSubmission(data.partnerId, data.clientPhone);
     const now = new Date();
 
     const lead: Lead = {
@@ -589,6 +672,13 @@ export class InMemoryReferralRepository implements IReferralRepository {
       customPartnerCommissionBps: null,
       customAgentCommissionBps: null,
       status: initialStatus,
+      demoPropertyId: data.demoPropertyId ?? null,
+      submissionKey: data.submissionKey ?? null,
+      requirements: data.requirements ?? null,
+      originatingAgencyId: data.originatingAgencyId ?? null,
+      agencyReviewStage: data.agencyReviewStage ?? null,
+      consentAt: data.consentAt ?? null,
+      revision: 0,
       wonAt: null,
       lostReasonId: null,
       lostDetails: null,
@@ -604,7 +694,7 @@ export class InMemoryReferralRepository implements IReferralRepository {
       leadId: id,
       changedById: data.changedById,
       previousStatus: null,
-      newStatus: initialStatus,
+      newStatus: data.agencyReviewStage ?? initialStatus,
       transitionNote: data.transitionNote ?? 'Initial referral submission',
       createdAt: now,
       changedBy: this.users.get(data.changedById)
@@ -651,11 +741,11 @@ export class InMemoryReferralRepository implements IReferralRepository {
     if (params.filter.userId) {
       list = list.filter((l) => l.partnerId === params.filter.userId || l.agentId === params.filter.userId);
     }
+    if (params.filter.intakeCoordinatorId) {
+      list = list.filter(l => l.status !== 'DRAFT' && (!l.coordinatorId || l.coordinatorId === params.filter.intakeCoordinatorId));
+    }
     if (params.filter.agencyId) {
-      list = list.filter((l) => {
-        const meta = this.userMeta.get(l.partnerId);
-        return meta?.agencyId === params.filter.agencyId || meta?.agency?.id === params.filter.agencyId;
-      });
+      list = list.filter(l => l.originatingAgencyId === params.filter.agencyId);
     }
     if (params.filter.status) {
       list = list.filter((l) => l.status === params.filter.status);
@@ -702,8 +792,13 @@ export class InMemoryReferralRepository implements IReferralRepository {
     const existing = this.leads.get(id);
     if (!existing) throw new Error(`Lead ${id} not found`);
 
+    if (data.revision !== undefined && existing.revision !== data.revision) {
+      throw Object.assign(new Error('Referral changed. Refresh and try again.'), { statusCode: 409 });
+    }
     const updated: Lead = {
       ...existing,
+      revision: existing.revision + 1,
+      ...(data.requirements !== undefined && { requirements: data.requirements }),
       ...(data.clientName !== undefined && { clientName: data.clientName }),
       ...(data.clientEmail !== undefined && { clientEmail: data.clientEmail }),
       ...(data.clientPhone !== undefined && { clientPhone: data.clientPhone }),
@@ -726,9 +821,19 @@ export class InMemoryReferralRepository implements IReferralRepository {
     const existing = this.leads.get(id);
     if (!existing) throw new Error(`Lead ${id} not found`);
 
+    if (transition.previousStatus === 'DRAFT' && (transition.status === 'SUBMITTED' || transition.agencyReviewStage === 'PENDING_AGENCY_APPROVAL')) {
+      this.checkSubmission(existing.partnerId, existing.clientPhone, id);
+    }
+    if (transition.revision !== undefined && existing.revision !== transition.revision) {
+      throw Object.assign(new Error('Referral changed. Refresh and try again.'), { statusCode: 409 });
+    }
     const updated: Lead = {
       ...existing,
+      revision: existing.revision + 1,
       status: transition.status,
+        ...(transition.originatingAgencyId && { originatingAgencyId: transition.originatingAgencyId }),
+        ...(transition.agencyReviewStage && { agencyReviewStage: transition.agencyReviewStage }),
+        ...(transition.consentAt && { consentAt: transition.consentAt }),
       ...(transition.wonAt !== undefined && { wonAt: transition.wonAt }),
       ...(transition.actualDealValue !== undefined &&
         transition.actualDealValue !== null && {
@@ -746,7 +851,7 @@ export class InMemoryReferralRepository implements IReferralRepository {
       leadId: id,
       changedById: transition.changedById,
       previousStatus: transition.previousStatus,
-      newStatus: transition.status,
+      newStatus: transition.agencyReviewStage ?? transition.status,
       transitionNote: transition.transitionNote ?? null,
       createdAt: new Date(),
       changedBy: this.users.get(transition.changedById)
@@ -770,8 +875,12 @@ export class InMemoryReferralRepository implements IReferralRepository {
     const existing = this.leads.get(id);
     if (!existing) throw new Error(`Lead ${id} not found`);
 
+    if (assignment.revision !== undefined && existing.revision !== assignment.revision) {
+      throw Object.assign(new Error('Referral changed. Refresh and try again.'), { statusCode: 409 });
+    }
     const updated: Lead = {
       ...existing,
+      revision: existing.revision + 1,
       ...(assignment.coordinatorId !== undefined && { coordinatorId: assignment.coordinatorId }),
       ...(assignment.agentId !== undefined && { agentId: assignment.agentId }),
       ...(assignment.statusChange && { status: assignment.statusChange.newStatus }),

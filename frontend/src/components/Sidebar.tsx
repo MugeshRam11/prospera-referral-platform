@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { UserSummary } from '../types';
 import prosperaWhiteIcon from '../assets/prospera-white-logo-icon.png';
-import founderAvatar from '../assets/founder.webp';
+import { ApiClient } from '@/lib/api';
 import sidebarPromoBg from '../assets/iStock-1572334424.webp';
 
 interface SidebarProps {
@@ -131,7 +131,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           title: 'Ecosystem',
           items: [
             { label: 'Service Catalog', href: '/services', icon: Building2 },
-            { label: 'Partners Directory', href: '/admin/partners', icon: Briefcase },
           ],
         },
         {
@@ -281,12 +280,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const navSections = getPersonaNavigation();
 
-  const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('prospera_corporate_session_token');
-      localStorage.removeItem('prospera_user');
-      window.location.href = '/auth/login';
-    }
+  const handleLogout = async () => {
+    await ApiClient.logout();
+    window.location.replace('/auth/login');
   };
 
   const getPersonaRoleLabel = (): { title: string; badge: string; color: string } => {
@@ -456,12 +452,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <Image
-                    src={founderAvatar}
-                    alt={user?.fullName || 'Prospera Member'}
-                    fill
-                    className="object-cover"
-                  />
+                  <span className="grid h-full place-items-center bg-slate-200 font-bold text-slate-700">{user?.fullName?.charAt(0)}</span>
                 )}
                 <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full border border-[#070D1D]" />
               </div>

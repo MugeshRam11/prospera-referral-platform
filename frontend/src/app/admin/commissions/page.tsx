@@ -22,18 +22,21 @@ import { ApiClient } from '../../../lib/api';
 interface CommissionLedgerRecord {
   id: string;
   amount: number;
-  rateBps: number;
+  commissionBps: number;
+  dealValue: number;
+  currency: string;
   status: string;
   createdAt: string;
-  paidAt?: string | null;
-  referral?: {
+  availableAt?: string | null;
+  lead?: {
+    referenceNo: string;
     id: string;
     clientName: string;
     expectedDealValue: number;
     actualDealValue?: number | null;
     service?: { name: string } | null;
   } | null;
-  user?: {
+  recipient?: {
     id: string;
     fullName: string;
     email: string;
@@ -207,29 +210,28 @@ export default function AdminCommissionsPage() {
                   <th className="py-3.5 px-4 text-right">Commission Amount</th>
                   <th className="py-3.5 px-4">Status</th>
                   <th className="py-3.5 px-4 text-right">Created Date</th>
-                  <th className="py-3.5 px-4 text-right">Payout Date</th>
+                  <th className="py-3.5 px-4 text-right">Available From</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
                 {entries.map((entry) => (
                   <tr key={entry.id} className="hover:bg-slate-50/60 transition-colors">
                     <td className="py-3 px-4">
-                      {entry.user ? (
+                      {entry.recipient ? (
                         <div>
-                          <div className="font-bold text-slate-900">{entry.user.fullName}</div>
-                          <span className="text-[10px] text-slate-400 font-mono">{entry.user.role}</span>
+                          <div className="font-bold text-slate-900">{entry.recipient.fullName}</div>
+                          <span className="text-[10px] text-slate-400 font-mono">{entry.recipient.role}</span>
                         </div>
                       ) : (
                         <span className="text-slate-400 italic">Institutional</span>
                       )}
                     </td>
                     <td className="py-3 px-4">
-                      {entry.referral ? (
+                      {entry.lead ? (
                         <div>
-                          <div className="font-semibold text-slate-800">{entry.referral.clientName}</div>
+                          <div className="font-semibold text-slate-800">{entry.lead.clientName}</div>
                           <div className="text-[11px] text-slate-400">
-                            {entry.referral.service?.name || 'Referral'} (Deal:{' '}
-                            {formatAED(entry.referral.actualDealValue || entry.referral.expectedDealValue)})
+                            {entry.lead.referenceNo} · {entry.currency} {entry.dealValue.toLocaleString()}
                           </div>
                         </div>
                       ) : (
@@ -237,10 +239,10 @@ export default function AdminCommissionsPage() {
                       )}
                     </td>
                     <td className="py-3 px-4 text-center font-mono font-semibold text-slate-700">
-                      {(entry.rateBps / 100).toFixed(2)}% ({entry.rateBps} bps)
+                      {(entry.commissionBps / 100).toFixed(2)}% ({entry.commissionBps} bps)
                     </td>
                     <td className="py-3 px-4 text-right font-mono font-extrabold text-emerald-700 text-sm">
-                      {formatAED(entry.amount)}
+                      {entry.currency} {entry.amount.toLocaleString()}
                     </td>
                     <td className="py-3 px-4">
                       {getStatusBadge(entry.status)}
@@ -249,7 +251,7 @@ export default function AdminCommissionsPage() {
                       {new Date(entry.createdAt).toLocaleDateString()}
                     </td>
                     <td className="py-3 px-4 text-right text-[11px] text-slate-400 whitespace-nowrap">
-                      {entry.paidAt ? new Date(entry.paidAt).toLocaleDateString() : '—'}
+                      {entry.availableAt ? new Date(entry.availableAt).toLocaleDateString() : '—'}
                     </td>
                   </tr>
                 ))}

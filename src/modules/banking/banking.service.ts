@@ -1,3 +1,4 @@
+import { requireAgencyManager } from '../agency/agency-access';
 import { prisma } from '../../lib/prisma';
 import { encryptSensitive, maskIban, extractIbanLast4 } from '../../lib/encryption';
 import { storePrivateDocument } from '../../lib/documentStorage';
@@ -9,8 +10,9 @@ export class BankingService {
    * Retrieves bank accounts for user or organization with masked IBAN.
    */
   public async getBankAccounts(userId: string, agencyId?: string) {
+    if (agencyId) await requireAgencyManager(userId, agencyId);
     const accounts = await prisma.bankAccount.findMany({
-      where: agencyId ? { agencyId } : { userId },
+      where: agencyId ? { agencyId } : { userId, agencyId: null },
       orderBy: [{ isPrimary: 'desc' }, { createdAt: 'desc' }],
       select: {
         id: true,
@@ -29,10 +31,10 @@ export class BankingService {
       },
     });
 
-    return accounts.map((acc) => ({
+    return accounts.map(({ bankConfirmationDocKey, ...acc }) => ({
       ...acc,
       maskedIban: maskIban(`AE00000000000000000${acc.ibanLast4}`),
-      hasConfirmationDoc: Boolean(acc.bankConfirmationDocKey),
+      hasConfirmationDoc: Boolean(bankConfirmationDocKey),
     }));
   }
 
@@ -46,19 +48,7 @@ export class BankingService {
     ipAddress?: string,
     userAgent?: string
   ) {
-    // If agencyId is passed, verify caller permissions
-    if (input.agencyId) {
-      const membership = await prisma.agencyMember.findFirst({
-        where: {
-          agencyId: input.agencyId,
-          userId,
-          role: { in: ['AGENCY_OWNER', 'AGENCY_ADMIN'] },
-        },
-      });
-      if (!membership) {
-        throw new Error('Unauthorized: Only agency owners and admins can configure agency bank details');
-      }
-    }
+    if (input.agencyId) await requireAgencyManager(userId, input.agencyId);
 
     let confirmationDocKey: string | null = null;
     if (confirmationFile) {
@@ -149,6 +139,7 @@ export class BankingService {
       throw new Error('Bank account not found');
     }
 
+    if (account.agencyId) await requireAgencyManager(userId, account.agencyId);
     if (account.userId !== userId) {
       throw new Error('Access denied: You do not own this bank account');
     }

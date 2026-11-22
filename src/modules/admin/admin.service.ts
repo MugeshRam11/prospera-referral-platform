@@ -51,7 +51,7 @@ export class AdminService {
       // Total Independent Agents
       prisma.user.count({
         where: {
-          role: { in: [Role.AGENT, Role.REFERRAL_PARTNER] },
+          role: Role.AGENT,
           agentType: 'INDEPENDENT',
         },
       }),
@@ -60,7 +60,7 @@ export class AdminService {
       // Total Agency Members
       prisma.user.count({
         where: {
-          role: { in: [Role.AGENT, Role.REFERRAL_PARTNER] },
+          role: Role.AGENT,
           agentType: 'AGENCY_MEMBER',
         },
       }),
@@ -1699,6 +1699,7 @@ export class AdminService {
         actualDealValue: r.actualDealValue ? Number(r.actualDealValue) : null,
         currency: r.currency,
         status: r.status,
+        agencyReviewStage: r.agencyReviewStage,
         partner: r.partner,
         agent: r.agent,
         coordinator: r.coordinator,

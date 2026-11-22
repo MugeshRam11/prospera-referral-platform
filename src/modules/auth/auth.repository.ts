@@ -150,6 +150,8 @@ export class PrismaAuthRepository implements IAuthRepository {
         user: {
           include: {
             agencyMemberships: {
+              where: { status: 'ACTIVE' },
+              orderBy: { joinedAt: 'asc' },
               include: {
                 agency: true,
               },

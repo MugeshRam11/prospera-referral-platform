@@ -41,7 +41,19 @@ export default function AdminReportsPage() {
     setErrorMsg(null);
     try {
       const res = await ApiClient.getAdminPlatformReports();
-      setData(res);
+      const funnel: { status: string; count: number; expectedValue: number; actualValue: number }[] = res.leadsFunnel;
+      const won = funnel.find(row => row.status === 'WON');
+      const leadsCount = funnel.reduce((sum, row) => sum + row.count, 0);
+      const active = funnel.filter(row => !['DRAFT', 'WON', 'LOST', 'CANCELLED'].includes(row.status));
+      setData({
+        totalVolume: won?.actualValue ?? 0,
+        activePipeline: active.reduce((sum, row) => sum + row.expectedValue, 0),
+        totalCommissionsEarned: res.totalCommissionsAccrued,
+        leadsCount, wonCount: won?.count ?? 0,
+        conversionRate: leadsCount ? ((won?.count ?? 0) * 100 / leadsCount).toFixed(1) : '0',
+        statusBreakdown: Object.fromEntries(funnel.map(row => [row.status, row.count])),
+        serviceBreakdown: [],
+      });
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : 'Unable to generate platform analytics reports');
     } finally {
@@ -251,4 +263,3 @@ export default function AdminReportsPage() {
     </div>
   );
 }
-

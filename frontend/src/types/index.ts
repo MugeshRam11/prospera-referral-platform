@@ -224,6 +224,12 @@ export interface LeadStatusHistoryItem {
 }
 
 export interface LeadItem {
+  revision?: number;
+  originatingAgencyId?: string | null;
+  agencyReviewStage?: 'PENDING_AGENCY_APPROVAL' | 'AGENCY_CHANGES_REQUESTED' | 'AGENCY_APPROVED' | null;
+  requirements?: string | null;
+  demoPropertyId?: string | null;
+  consentAt?: string | null;
   id: string;
   referenceNo: string;
   partnerId: string;
@@ -628,4 +634,3 @@ export interface AdminDemoPersonaItem {
   kycStatus?: string | null;
   personaDescription?: string | null;
 }
-

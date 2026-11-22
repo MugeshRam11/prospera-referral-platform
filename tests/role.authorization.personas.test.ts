@@ -84,6 +84,9 @@ describe('Role-Based Authorization & Persona Isolation Test Suite', () => {
 
   const validPassword = 'SecurePassword123!';
 
+  // All synthetic personas use the same fixture password. Hash it once per suite.
+  const fixturePasswordHash = argon2.hash(validPassword);
+
   const createPersonaSession = async (
     email: string,
     fullName: string,
@@ -93,7 +96,7 @@ describe('Role-Based Authorization & Persona Isolation Test Suite', () => {
     coordId: string | null = null,
     agencyContext?: { agencyId: string; agencyRole: AgencyRole; agency: Agency }
   ) => {
-    const passwordHash = await argon2.hash(validPassword);
+    const passwordHash = await fixturePasswordHash;
     const user = await authRepo.createUser({
       email,
       fullName,
@@ -319,6 +322,7 @@ describe('Role-Based Authorization & Persona Isolation Test Suite', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Partner Institutional Client',
           clientPhone: '+971509990001',
@@ -336,6 +340,7 @@ describe('Role-Based Authorization & Persona Isolation Test Suite', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${independentAgentToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Independent Broker Direct Client',
           clientPhone: '+971509990002',
@@ -353,6 +358,7 @@ describe('Role-Based Authorization & Persona Isolation Test Suite', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${agencyMemberToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Agency Member VIP Client',
           clientPhone: '+971509990003',
@@ -366,11 +372,37 @@ describe('Role-Based Authorization & Persona Isolation Test Suite', () => {
       expect(res.body.data.partner.agencyName).toBe('Prestige Luxury Real Estate');
     });
 
+    it('persists agency return, resubmission, approval, assignment and progress on one reference', async () => {
+      const create = await request(app).post('/api/v1/referrals').set('Authorization', `Bearer ${agencyMemberToken}`)
+        .send({ serviceId: activeServiceId, clientName: 'Synthetic Meeting', clientPhone: '0001234567', expectedDealValue: 100, asDraft: true });
+      expect(create.status).toBe(201);
+      const base = '/api/v1/referrals/' + create.body.data.id;
+      const action = (path: string, token: string, body: object) =>
+        request(app).patch(base + path).set('Authorization', `Bearer ${token}`).send(body);
+      const submit = () => action('/status', agencyMemberToken, { status: 'SUBMITTED', consent: true });
+      expect((await submit()).body.data.agencyReviewStage).toBe('PENDING_AGENCY_APPROVAL');
+      expect((await action('/agency-review', agencyMemberToken, { decision: 'approve' })).status).toBe(403);
+      expect((await action('/assign', coordinatorToken, { agentId: independentAgentId })).status).toBe(404);
+      expect((await action('/agency-review', agencyAdminToken, { decision: 'return', reason: 'Clarify brief' })).body.data.agencyReviewStage).toBe('AGENCY_CHANGES_REQUESTED');
+      expect((await action('', agencyMemberToken, { requirements: 'Updated synthetic brief' })).status).toBe(200);
+      expect((await submit()).status).toBe(200);
+      const approved = await action('/agency-review', agencyAdminToken, { decision: 'approve' });
+      expect(approved.body.data.status).toBe('SUBMITTED');
+      expect((await action('/agency-review', agencyOwnerToken, { decision: 'approve' })).status).toBe(409);
+      expect((await action('/assign', coordinatorToken, { agentId: independentAgentId })).body.data.status).toBe('ASSIGNED');
+      expect((await action('/status', independentAgentToken, { status: 'CONTACTED', transitionNote: 'Synthetic follow-up' })).status).toBe(200);
+      const history = await request(app).get(base + '/history').set('Authorization', `Bearer ${agencyMemberToken}`);
+      expect(history.body.data.map((event: { newStatus: string }) => event.newStatus)).toEqual([
+        'DRAFT', 'PENDING_AGENCY_APPROVAL', 'AGENCY_CHANGES_REQUESTED', 'PENDING_AGENCY_APPROVAL', 'AGENCY_APPROVED', 'ASSIGNED', 'CONTACTED',
+      ]);
+    });
+
     it('Agency Admin CAN submit new referrals', async () => {
       const res = await request(app)
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${agencyAdminToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Agency Admin Client',
           clientPhone: '+971509990004',
@@ -388,6 +420,7 @@ describe('Role-Based Authorization & Persona Isolation Test Suite', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${agencyOwnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Agency Owner High-Roller',
           clientPhone: '+971509990005',
@@ -410,6 +443,7 @@ describe('Role-Based Authorization & Persona Isolation Test Suite', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${coordinatorToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Coordinator Attempt',
           clientPhone: '+971509990006',
@@ -425,6 +459,7 @@ describe('Role-Based Authorization & Persona Isolation Test Suite', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Unassigned Deal',
           clientPhone: '+971509990007',
@@ -457,6 +492,7 @@ describe('Role-Based Authorization & Persona Isolation Test Suite', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${independentAgentToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Personal Broker Deal',
           clientPhone: '+971509990008',
@@ -485,6 +521,7 @@ describe('Role-Based Authorization & Persona Isolation Test Suite', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Sales Progression Client',
           clientPhone: '+971509990009',
@@ -564,6 +601,7 @@ describe('Role-Based Authorization & Persona Isolation Test Suite', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${agencyMemberToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Agency A Confidential Opportunity',
           clientPhone: '+971509990010',
@@ -592,6 +630,7 @@ describe('Role-Based Authorization & Persona Isolation Test Suite', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${agencyMemberToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Agency A Secret Deal',
           clientPhone: '+971509990011',
@@ -629,6 +668,7 @@ describe('Role-Based Authorization & Persona Isolation Test Suite', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${pPartnerB.token}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Partner B VIP Client',
           clientPhone: '+971509990012',
@@ -648,6 +688,7 @@ describe('Role-Based Authorization & Persona Isolation Test Suite', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Unassigned Secret Client',
           clientPhone: '+971509990013',
@@ -667,6 +708,7 @@ describe('Role-Based Authorization & Persona Isolation Test Suite', () => {
         .post('/api/v1/referrals')
         .set('Authorization', `Bearer ${partnerToken}`)
         .send({
+          consent: true,
           serviceId: activeServiceId,
           clientName: 'Partner Self-Assign Lead',
           clientPhone: '+971509990014',

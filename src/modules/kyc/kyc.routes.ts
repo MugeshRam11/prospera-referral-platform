@@ -1,3 +1,5 @@
+import { validateBody, validateQuery } from '../../middleware/validate';
+import { uploadDocumentSchema } from './kyc.validation';
 import { Router } from 'express';
 import { KycController } from './kyc.controller';
 import { authenticate } from '../../middleware/authenticate';
@@ -21,6 +23,7 @@ router.use(authenticate);
 router.get(
   '/documents',
   authorize(allRoles, onboardingStatuses),
+  validateQuery(uploadDocumentSchema.pick({ agencyId: true })),
   (req, res, next) => controller.getDocuments(req, res, next)
 );
 
@@ -29,6 +32,7 @@ router.post(
   '/upload',
   authorize(allRoles, onboardingStatuses),
   uploadMiddleware.single('file'),
+  validateBody(uploadDocumentSchema),
   (req, res, next) => controller.uploadDocument(req, res, next)
 );
 

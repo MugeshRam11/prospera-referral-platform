@@ -19,14 +19,13 @@ import {
   FileText,
 } from 'lucide-react';
 import { UserSummary } from '../types';
-import founderAvatar from '../assets/founder.webp';
+import { ApiClient } from '@/lib/api';
 
 interface HeaderProps {
   user: UserSummary | null;
   onOpenNewReferralModal: () => void;
   onSearch?: (query: string) => void;
   onToggleMobileMenu?: () => void;
-  withdrawableBalance?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -34,10 +33,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenNewReferralModal,
   onSearch,
   onToggleMobileMenu,
-  withdrawableBalance = 0,
 }) => {
   const [searchVal, setSearchVal] = useState('');
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,20 +44,9 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('prospera_corporate_session_token');
-      localStorage.removeItem('prospera_user');
-      window.location.href = '/auth/login';
-    }
-  };
-
-  const formatAED = (amount: number) => {
-    return new Intl.NumberFormat('en-AE', {
-      style: 'currency',
-      currency: 'AED',
-      minimumFractionDigits: 2,
-    }).format(amount);
+  const handleLogout = async () => {
+    await ApiClient.logout();
+    window.location.replace('/auth/login');
   };
 
   const getUserSubtitle = (): string => {
@@ -194,44 +180,11 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex flex-col text-left">
               <span className="text-[10px] text-slate-400 font-medium leading-none">Withdrawable</span>
               <span className="text-xs font-bold text-slate-900 tracking-tight mt-0.5">
-                {formatAED(withdrawableBalance)}
+                Unavailable
               </span>
             </div>
           </div>
         )}
-
-        {/* Notifications Popover */}
-        <div className="relative">
-          <button
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="w-9 h-9 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/80 shadow-2xs flex items-center justify-center text-slate-600 hover:text-slate-900 transition-colors relative"
-            aria-label="View notifications"
-          >
-            <Bell size={17} />
-            <span className="w-2 h-2 bg-blue-600 rounded-full absolute top-2 right-2 ring-2 ring-white" />
-          </button>
-
-          {showNotifications && (
-            <div className="absolute right-0 top-11 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-4">
-              <div className="flex justify-between items-center mb-3">
-                <span className="font-bold text-xs text-slate-900">Notifications</span>
-                <span className="text-[11px] text-blue-600 font-medium cursor-pointer hover:underline">
-                  Mark all as read
-                </span>
-              </div>
-              <div className="space-y-2 text-xs">
-                <div className="p-2.5 rounded-xl bg-blue-50/70 border border-blue-100/60">
-                  <p className="font-semibold text-slate-900">Platform Active</p>
-                  <p className="text-slate-600 mt-0.5">Connected to Prospera real-time compliance ledger.</p>
-                </div>
-                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                  <p className="font-semibold text-slate-900">Session Verified</p>
-                  <p className="text-slate-600 mt-0.5">Secure authenticated session established.</p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
 
         {/* User Profile Pill Menu */}
         <div className="relative">
@@ -248,12 +201,7 @@ export const Header: React.FC<HeaderProps> = ({
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <Image
-                  src={founderAvatar}
-                  alt={user?.fullName || 'Prospera Member'}
-                  fill
-                  className="object-cover"
-                />
+                <span className="grid h-full place-items-center bg-slate-200 font-bold text-slate-700">{user?.fullName?.charAt(0)}</span>
               )}
               <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full border-1.5 border-white" />
             </div>

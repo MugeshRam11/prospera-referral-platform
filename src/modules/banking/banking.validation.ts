@@ -15,7 +15,7 @@ export const createBankAccountSchema = z.object({
     .nullable()
     .or(z.literal('')),
   currency: z.string().length(3).default('AED'),
-  isPrimary: z.boolean().default(true).optional(),
+  isPrimary: z.union([z.boolean(), z.enum(['true', 'false']).transform(value => value === 'true')]).default(true),
   agencyId: z.string().uuid().optional(),
 });
 

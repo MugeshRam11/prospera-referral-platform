@@ -88,6 +88,12 @@ enum KycStatus {
   CHANGES_REQUESTED
 }
 
+enum AgencyReviewStage {
+  PENDING_AGENCY_APPROVAL
+  AGENCY_CHANGES_REQUESTED
+  AGENCY_APPROVED
+}
+
 enum LeadStatus {
   DRAFT
   SUBMITTED
@@ -182,6 +188,7 @@ model User {
   updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
   // Child relations
+  orientation              Orientation?
   sessions                 Session[]
   otpChallenges            OtpChallenge[]
   kycDocuments             KycDocument[]             @relation("UserKycDocuments")
@@ -459,6 +466,13 @@ model Lead {
   customPartnerCommissionBps Int?       @map("custom_partner_commission_bps")
   customAgentCommissionBps   Int?       @map("custom_agent_commission_bps")
 
+  requirements               String? @db.Text
+  demoPropertyId             String? @map("demo_property_id") @db.VarChar(64)
+  submissionKey              String? @map("submission_key") @db.Uuid
+  originatingAgencyId        String? @map("originating_agency_id") @db.Uuid
+  agencyReviewStage          AgencyReviewStage? @map("agency_review_stage")
+  consentAt                  DateTime? @map("consent_at") @db.Timestamptz
+  revision                   Int @default(0)
   status                     LeadStatus @default(SUBMITTED)
   wonAt                      DateTime?  @map("won_at") @db.Timestamptz
 
@@ -473,6 +487,7 @@ model Lead {
   statusHistory              LeadStatusHistory[]
   commissionEntries          CommissionLedgerEntry[]
 
+  @@unique([partnerId, submissionKey])
   @@index([partnerId, status])
   @@index([agentId, status])
   @@index([coordinatorId, status])
@@ -672,4 +687,12 @@ model CmsTeamMember {
   isActive     Boolean  @default(true) @map("is_active")
 
   @@map("cms_team_members")
+}
+
+model Orientation {
+  userId    String @id @map("user_id") @db.Uuid
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  step      Int @default(0)
+  state     String @default("active") @db.VarChar(12)
+  @@map("orientations")
 }

@@ -38,13 +38,14 @@ interface AdminReferralRecord {
     name: string;
     slug: string;
   } | null;
-  referrer?: {
+  agencyReviewStage?: string | null;
+  partner?: {
     id: string;
     fullName: string;
     email: string;
     role: string;
   } | null;
-  assignedAgent?: {
+  agent?: {
     id: string;
     fullName: string;
     email: string;
@@ -274,14 +275,14 @@ export default function AdminReferralsPage() {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      {getStatusBadge(r.status)}
+                      {getStatusBadge(r.status === 'DRAFT' && r.agencyReviewStage ? r.agencyReviewStage : r.status)}
                     </td>
                     <td className="py-3 px-4">
-                      {r.referrer ? (
+                      {r.partner ? (
                         <div>
-                          <span className="font-medium text-slate-800">{r.referrer.fullName}</span>
+                          <span className="font-medium text-slate-800">{r.partner.fullName}</span>
                           <span className="block text-[10px] text-slate-400 font-mono">
-                            {r.referrer.role}
+                            {r.partner.role}
                           </span>
                         </div>
                       ) : (
@@ -289,8 +290,8 @@ export default function AdminReferralsPage() {
                       )}
                     </td>
                     <td className="py-3 px-4">
-                      {r.assignedAgent ? (
-                        <span className="font-medium text-slate-800">{r.assignedAgent.fullName}</span>
+                      {r.agent ? (
+                        <span className="font-medium text-slate-800">{r.agent.fullName}</span>
                       ) : (
                         <span className="text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-[11px] font-semibold border border-amber-200">
                           Unassigned
@@ -349,4 +350,3 @@ export default function AdminReferralsPage() {
     </div>
   );
 }
-

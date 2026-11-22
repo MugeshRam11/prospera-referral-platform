@@ -26,7 +26,7 @@ import { ApiClient } from '../../lib/api';
 export default function PartnerDashboardPage() {
   const [currentUser, setCurrentUser] = useState<UserSummary | null>(null);
   const [referrals, setReferrals] = useState<LeadItem[]>([]);
-  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [entryCount, setEntryCount] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -37,11 +37,11 @@ export default function PartnerDashboardPage() {
       const [u, r, m] = await Promise.all([
         ApiClient.getMe(),
         ApiClient.getReferrals(),
-        ApiClient.getDashboardMetrics(),
+        ApiClient.getCommissions().catch(() => null),
       ]);
       setCurrentUser(u);
       setReferrals(r || []);
-      setMetrics(m);
+      setEntryCount(m?.length ?? null);
     } catch (err: unknown) {
       setErrorMsg(err instanceof Error ? err.message : 'Unable to load partner dashboard');
     } finally {
@@ -67,6 +67,8 @@ export default function PartnerDashboardPage() {
     0
   );
 
+  if (isLoading) return <p role="status">Loading partner workspace...</p>;
+  if (errorMsg) return <p role="alert">{errorMsg} <button onClick={loadData}>Retry</button></p>;
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Partner Hero Banner */}
@@ -135,12 +137,12 @@ export default function PartnerDashboardPage() {
           </div>
           <div className="p-3 bg-white/5 rounded-2xl border border-white/5">
             <span className="text-[10px] uppercase font-bold text-amber-300 tracking-wider">
-              Earned Commission
+              Available ledger entries
             </span>
             <div className="text-xl font-extrabold text-amber-300 mt-1 font-mono">
-              {formatAED(metrics?.totalEarnedCommission || wonVolume * 0.02)}
+              {entryCount ?? 'Unavailable'}
             </div>
-            <span className="text-[10px] text-slate-400">Accrued to date</span>
+            <span className="text-[10px] text-slate-400">Most recent 100 available records</span>
           </div>
         </div>
       </div>
@@ -286,4 +288,3 @@ export default function PartnerDashboardPage() {
     </div>
   );
 }
-

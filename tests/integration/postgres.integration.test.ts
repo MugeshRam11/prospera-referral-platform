@@ -62,6 +62,7 @@ describe('PostgreSQL Database Integration Tests (Real Database Verification)', (
       }
 
       if (createdUserIds.length > 0) {
+        await prisma.auditLog.deleteMany({ where: { actorUserId: { in: createdUserIds } } });
         await prisma.session.deleteMany({
           where: { userId: { in: createdUserIds } },
         });

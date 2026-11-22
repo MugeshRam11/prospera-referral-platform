@@ -1,320 +1,101 @@
 'use client';
 
-import React, { useState } from 'react';
-import {
-  X,
-  Building2,
-  Phone,
-  Mail,
-  Calendar,
-  DollarSign,
-  User,
-  Clock,
-  CheckCircle2,
-  ArrowRight,
-  TrendingUp,
-} from 'lucide-react';
-import { LeadItem, LeadStatus } from '../types';
-import { StatusBadge } from './StatusBadge';
-import { ApiClient } from '../lib/api';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { ApiClient } from '@/lib/api';
+import { demoProperties, workflowLabel } from '@/lib/catalogue';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from './ui/dialog';
+import { Button } from './ui/button';
+import type { LeadItem, LeadStatus, UserSummary } from '@/types';
 
-interface ReferralDetailModalProps {
-  lead: LeadItem | null;
-  isOpen: boolean;
-  onClose: () => void;
-  onStatusUpdated?: (updatedLead: LeadItem) => void;
-}
-
-export const ReferralDetailModal: React.FC<ReferralDetailModalProps> = ({
-  lead,
-  isOpen,
-  onClose,
-  onStatusUpdated,
-}) => {
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState<LeadStatus | ''>('');
-  const [transitionNote, setTransitionNote] = useState('');
-
-  if (!isOpen || !lead) return null;
-
-  const formatAED = (val: number | string | undefined | null) => {
-    if (!val) return 'AED 0.00';
-    return new Intl.NumberFormat('en-AE', {
-      style: 'currency',
-      currency: 'AED',
-      maximumFractionDigits: 0,
-    }).format(Number(val));
-  };
-
-  const handleStatusChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedStatus) return;
-
-    setIsUpdatingStatus(true);
-    try {
-      const updated = await ApiClient.updateReferralStatus(
-        lead.id,
-        selectedStatus,
-        transitionNote || `Status updated to ${selectedStatus}`
-      );
-      if (onStatusUpdated) {
-        onStatusUpdated(updated);
-      }
-      setSelectedStatus('');
-      setTransitionNote('');
-    } catch (err) {
-      console.error('Failed to update status', err);
-    } finally {
-      setIsUpdatingStatus(false);
-    }
-  };
-
-  const commissionRate = (lead.customPartnerCommissionBps || lead.service?.defaultPartnerCommissionBps || 250) / 100;
-  const dealValue = Number(lead.actualDealValue || lead.expectedDealValue || 0);
-  const partnerCommissionAmount = (dealValue * commissionRate) / 100;
-
-  return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true">
-      <div className="modal-card" style={{ maxWidth: '720px' }}>
-        {/* Header */}
-        <div className="modal-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span
-              style={{
-                fontSize: '0.82rem',
-                fontWeight: 700,
-                color: 'var(--blue-primary)',
-                backgroundColor: 'var(--blue-subtle)',
-                padding: '4px 8px',
-                borderRadius: 'var(--radius-sm)',
-              }}
-            >
-              {lead.referenceNo}
-            </span>
-            <StatusBadge status={lead.status} />
-          </div>
-          <button
-            onClick={onClose}
-            className="modal-close-btn"
-            aria-label="Close modal"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* Modal Body */}
-        <div className="modal-body">
-          {/* Main Title */}
-          <div>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-main)' }}>
-              {lead.clientName}
-            </h2>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Service: <strong>{lead.service?.name || 'Corporate Advisory'}</strong>
-            </p>
-          </div>
-
-          {/* Quick Metrics Bar */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '12px',
-              backgroundColor: '#f8fafc',
-              border: '1px solid var(--card-border)',
-              borderRadius: 'var(--radius-md)',
-              padding: '16px',
-            }}
-          >
-            <div>
-              <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>
-                Deal Value
-              </span>
-              <p style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '2px' }}>
-                {formatAED(dealValue)}
-              </p>
-            </div>
-            <div>
-              <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>
-                Commission Rate
-              </span>
-              <p style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--blue-primary)', marginTop: '2px' }}>
-                {commissionRate.toFixed(1)}%
-              </p>
-            </div>
-            <div>
-              <span style={{ fontSize: '0.72rem', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>
-                Estimated Accrual
-              </span>
-              <p style={{ fontSize: '1.15rem', fontWeight: 700, color: '#059669', marginTop: '2px' }}>
-                {formatAED(partnerCommissionAmount)}
-              </p>
-            </div>
-          </div>
-
-          {/* Client & Team Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-            {/* Client Info */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                Client Contact Details
-              </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Phone size={16} className="text-slate-400" />
-                <span>{lead.clientPhone}</span>
-              </div>
-              {lead.clientEmail && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                  <Mail size={16} className="text-slate-400" />
-                  <span>{lead.clientEmail}</span>
-                </div>
-              )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.88rem' }}>
-                <Calendar size={16} className="text-slate-400" />
-                <span>Submitted {new Date(lead.createdAt).toLocaleDateString()}</span>
-              </div>
-            </div>
-
-            {/* Assignment Info */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                Assigned Specialists
-              </span>
-              <div style={{ fontSize: '0.88rem' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Sales Agent: </span>
-                <strong>{lead.agent?.fullName || 'Senior Banking Team'}</strong>
-              </div>
-              <div style={{ fontSize: '0.88rem' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Coordinator: </span>
-                <strong>{lead.coordinator?.fullName || 'Rashid Al Nuaimi'}</strong>
-              </div>
-            </div>
-          </div>
-
-          {/* Notes */}
-          {lead.notes && (
-            <div
-              style={{
-                backgroundColor: '#ffffff',
-                border: '1px solid var(--card-border)',
-                borderRadius: 'var(--radius-md)',
-                padding: '14px',
-              }}
-            >
-              <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                Client Context & Notes
-              </span>
-              <p style={{ fontSize: '0.88rem', color: 'var(--text-main)', marginTop: '4px' }}>
-                {lead.notes}
-              </p>
-            </div>
-          )}
-
-          {/* Status Pipeline Advancement */}
-          <div
-            style={{
-              border: '1px solid var(--card-border)',
-              borderRadius: 'var(--radius-md)',
-              padding: '16px',
-              backgroundColor: '#f8fafc',
-            }}
-          >
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>
-              Pipeline Stage Progression
-            </span>
-            <form onSubmit={handleStatusChange} style={{ marginTop: '12px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <select
-                className="form-select"
-                style={{ width: 'auto', flex: 1, minWidth: '180px' }}
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value as LeadStatus)}
-              >
-                <option value="">Update Stage...</option>
-                <option value="SUBMITTED">SUBMITTED</option>
-                <option value="ASSIGNED">ASSIGNED</option>
-                <option value="CONTACTED">CONTACTED</option>
-                <option value="QUALIFIED">QUALIFIED</option>
-                <option value="PROPOSAL_SENT">PROPOSAL SENT</option>
-                <option value="NEGOTIATION">NEGOTIATION</option>
-                <option value="WON">WON (Deal Closed)</option>
-                <option value="LOST">LOST</option>
-              </select>
-              <input
-                type="text"
-                className="form-input"
-                style={{ flex: 1, minWidth: '180px' }}
-                placeholder="Transition note..."
-                value={transitionNote}
-                onChange={(e) => setTransitionNote(e.target.value)}
-              />
-              <button
-                type="submit"
-                className="btn-primary"
-                disabled={!selectedStatus || isUpdatingStatus}
-              >
-                {isUpdatingStatus ? 'Updating...' : 'Advance Stage'}
-              </button>
-            </form>
-          </div>
-
-          {/* Audit History Timeline */}
-          <div>
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              Status History & Audit Trail
-            </span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-              {(lead.statusHistory || []).map((h, i) => (
-                <div
-                  key={h.id || i}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '12px',
-                    fontSize: '0.84rem',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: '24px',
-                      height: '24px',
-                      borderRadius: '50%',
-                      backgroundColor: 'var(--blue-subtle)',
-                      color: 'var(--blue-primary)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                      marginTop: '2px',
-                    }}
-                  >
-                    <CheckCircle2 size={14} />
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <strong>{h.newStatus}</strong>
-                      <span style={{ color: 'var(--text-muted)', fontSize: '0.74rem' }}>
-                        {new Date(h.createdAt).toLocaleString()}
-                      </span>
-                    </div>
-                    {h.transitionNote && (
-                      <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '2px' }}>
-                        {h.transitionNote}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="modal-footer">
-          <button className="btn-secondary" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+const progress: Partial<Record<LeadStatus, LeadStatus[]>> = {
+  ASSIGNED: ['CONTACTED', 'QUALIFIED', 'LOST'],
+  CONTACTED: ['QUALIFIED', 'PROPOSAL_SENT', 'NEGOTIATION', 'WON', 'LOST'],
+  QUALIFIED: ['PROPOSAL_SENT', 'NEGOTIATION', 'WON', 'LOST'],
+  PROPOSAL_SENT: ['NEGOTIATION', 'WON', 'LOST'], NEGOTIATION: ['WON', 'LOST'],
 };
+
+export function ReferralDetailModal({ lead, user, isOpen, onClose, onStatusUpdated }: {
+  lead: LeadItem; user: UserSummary; isOpen: boolean; onClose: () => void; onStatusUpdated: (lead: LeadItem) => void;
+}) {
+  const [duplicates, setDuplicates] = useState<number>();
+  const [followUps, setFollowUps] = useState<Awaited<ReturnType<typeof ApiClient.getFollowUps>>>([]);
+  const [task, setTask] = useState({ note: '', nextAction: '', due: '' });
+  const [agents, setAgents] = useState<{ id: string; fullName: string }[]>([]);
+  const [agent, setAgent] = useState('');
+  const [note, setNote] = useState('');
+  const [stage, setStage] = useState<LeadStatus | ''>('');
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [busy, setBusy] = useState(false);
+  const pending = lead.agencyReviewStage === 'PENDING_AGENCY_APPROVAL';
+  const reviewer = pending && user.agencyId === lead.originatingAgencyId && user.id !== lead.partnerId &&
+    ['AGENCY_OWNER', 'AGENCY_ADMIN'].includes(user.agencyRole || '');
+  const dispatcher = user.role === 'COORDINATOR' || user.role === 'ADMIN';
+  const canAssign = dispatcher && lead.status === 'SUBMITTED';
+  const stages = (lead.agentId === user.id || dispatcher) ? progress[lead.status] : undefined;
+  const property = demoProperties.find(p => p.id === lead.demoPropertyId);
+  useEffect(() => {
+    if (canAssign) ApiClient.getAssignees().then(setAgents).catch(e => setError(e.message));
+  }, [canAssign]);
+  const internal = lead.status !== 'DRAFT' && (dispatcher || lead.agentId === user.id);
+  useEffect(() => {
+    if (reviewer || canAssign) ApiClient.getReferrals({ search: lead.clientPhone })
+      .then(rows => setDuplicates(rows.filter(row => row.id !== lead.id && row.clientPhone === lead.clientPhone).length))
+      .catch(e => setError(e.message));
+    if (internal) ApiClient.getFollowUps(lead.id).then(setFollowUps).catch(e => setError(e.message));
+  }, [lead.id, lead.clientPhone, reviewer, canAssign, internal]);
+
+  async function saveFollowUp(e: React.FormEvent) {
+    e.preventDefault(); setBusy(true); setError('');
+    try {
+      await ApiClient.recordFollowUp(lead.id, task);
+      setFollowUps(await ApiClient.getFollowUps(lead.id));
+      setTask({ note: '', nextAction: '', due: '' });
+      const refreshed = await ApiClient.getReferralById(lead.id);
+      if (refreshed) onStatusUpdated(refreshed);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Unable to record follow-up'); }
+    finally { setBusy(false); }
+  }
+  async function act(action: () => Promise<LeadItem>, success: string) {
+    setBusy(true); setError(''); setNotice('');
+    try { const result = await action(); onStatusUpdated(result); setNotice(success); setNote(''); setStage(''); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Action failed'); }
+    finally { setBusy(false); }
+  }
+  return <Dialog open={isOpen} onOpenChange={open => { if (!open) onClose(); }}>
+    <DialogContent className="max-h-[88vh] max-w-2xl overflow-y-auto">
+      <DialogTitle>{lead.referenceNo}</DialogTitle><DialogDescription>{workflowLabel(lead)} · {lead.service?.name}</DialogDescription>
+      <div className="space-y-2 rounded-xl bg-slate-50 p-4"><h3 className="font-bold">{lead.clientName}</h3>
+        <p>{lead.clientPhone} {lead.clientEmail}</p><p>{lead.currency} {Number(lead.expectedDealValue).toLocaleString()}</p>
+        {property && <p>{property.title} · Illustrative Demo Property</p>}
+        <p>Client consent · {lead.consentAt ? new Date(lead.consentAt).toLocaleString() : 'No confirmation recorded'}</p>
+        {lead.requirements && <p>{lead.requirements}</p>}{lead.notes && <p className="whitespace-pre-wrap">{lead.notes}</p>}
+        {lead.agent && <p>Assigned agent · {lead.agent.fullName}</p>}
+      </div>
+      {user.id === lead.partnerId && lead.status === 'DRAFT' && !pending && <Link className="font-semibold text-blue-800" href={'/referrals/new?draft=' + lead.id} onClick={onClose}>Edit and submit referral →</Link>}
+      {(reviewer || stages?.length || canAssign) && <label>Activity note<textarea className="mt-1 block w-full rounded-lg border p-2" value={note} maxLength={1000} onChange={e => setNote(e.target.value)} placeholder={reviewer ? 'Required when requesting changes' : 'Outcome or next action visible on the referral timeline'}/></label>}
+      {(reviewer || canAssign) && <p>Other visible referrals with this phone - {duplicates ?? 'Checking'}</p>}
+      {reviewer && <div className="flex flex-wrap gap-2"><Button disabled={busy} onClick={() => act(() => ApiClient.agencyReview(lead.id, { decision: 'approve' }), 'Referral approved and forwarded to Prospera')}>Approve for Prospera</Button>
+        <Button variant="outline" disabled={busy || !note.trim()} onClick={() => act(() => ApiClient.agencyReview(lead.id, { decision: 'return', reason: note }), 'Returned to the submitting member')}>Request changes</Button></div>}
+      {canAssign && <div className="space-y-2"><label>Assigned agent<select className="block w-full rounded-lg border p-2" value={agent} onChange={e => setAgent(e.target.value)}>
+        <option value="">Choose an eligible agent</option>{agents.map(a => <option key={a.id} value={a.id}>{a.fullName}</option>)}</select></label>
+        <Button disabled={busy || !agent} onClick={() => act(() => ApiClient.assignReferral(lead.id, { expectedRevision: lead.revision, agentId: agent, coordinatorId: user.role === 'COORDINATOR' ? user.id : undefined, assignmentNote: note || undefined }), 'Agent assigned')}>Assign referral</Button></div>}
+      {stages && <div className="space-y-2"><label>Next stage<select className="block w-full rounded-lg border p-2" value={stage} onChange={e => setStage(e.target.value as LeadStatus)}>
+        <option value="">Choose progress stage</option>{stages.map(s => <option key={s} value={s}>{s.replaceAll('_', ' ')}</option>)}</select></label>
+        <Button disabled={busy || !stage || !note.trim()} onClick={() => stage && act(() => ApiClient.updateReferralStatus(lead.id, stage, note), 'Progress recorded')}>Record progress</Button></div>}
+      {error && <p role="alert" className="text-red-800">{error}</p>}{notice && <p role="status" className="text-green-800">{notice}</p>}
+      {internal && <details><summary className="cursor-pointer font-semibold">Internal follow-ups</summary>
+        <ul>{followUps.map(f => <li className="mt-2 rounded-lg bg-slate-50 p-3" key={f.id}><strong>{f.newValues.nextAction} - {f.newValues.due}</strong><p>{f.newValues.note}</p></li>)}</ul>
+        {!['WON', 'LOST', 'CANCELLED'].includes(lead.status) && <form onSubmit={saveFollowUp} className="mt-3 grid gap-2">
+          <label>Internal note<textarea className="block w-full border p-2" required maxLength={1000} value={task.note} onChange={e => setTask({ ...task, note: e.target.value })}/></label>
+          <label>Next action<input className="block w-full border p-2" required maxLength={300} value={task.nextAction} onChange={e => setTask({ ...task, nextAction: e.target.value })}/></label>
+          <label>Follow-up date<input className="block border p-2" required type="date" value={task.due} onChange={e => setTask({ ...task, due: e.target.value })}/></label>
+          <Button disabled={busy}>Save internal follow-up</Button></form>}</details>}
+      <h3 className="font-bold">Referral timeline</h3>
+      <ol className="space-y-3 border-l-2 border-slate-200 pl-4">{[...(lead.statusHistory || [])].reverse().map(e =>
+        <li key={e.id}><strong className="text-sm">{e.newStatus.replaceAll('_', ' ')}</strong>
+          <p className="text-xs text-slate-600"><time dateTime={e.createdAt}>{new Date(e.createdAt).toLocaleString()}</time> · {e.changedBy?.fullName} {e.changedBy?.role}</p>
+          {e.transitionNote && <p className="text-sm">{e.transitionNote}</p>}</li>)}</ol>
+    </DialogContent></Dialog>;
+}

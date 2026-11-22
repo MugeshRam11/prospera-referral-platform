@@ -63,11 +63,14 @@ export class ProfileService {
       where: { id: userId },
       include: {
         agencyMemberships: {
+          where: { status: 'ACTIVE' },
+          orderBy: { joinedAt: 'asc' },
           include: {
             agency: true,
           },
         },
         kycDocuments: {
+          where: { agencyId: null },
           select: {
             id: true,
             documentType: true,
@@ -79,6 +82,7 @@ export class ProfileService {
           },
         },
         bankAccounts: {
+          where: { agencyId: null },
           select: {
             id: true,
             bankName: true,
