@@ -1,3 +1,4 @@
+import { queueInvitation } from '../notifications/events';
 import crypto from 'crypto';
 import { AppError } from '../auth/auth.service';
 import { prisma } from '../../lib/prisma';
@@ -256,50 +257,59 @@ export class AgencyService {
     ipAddress?: string,
     userAgent?: string
   ) {
-    const membership = await prisma.agencyMember.findFirst({
-      where: {
-        agencyId,
-        userId,
-        status: 'ACTIVE',
-        role: { in: [AgencyRole.AGENCY_OWNER, AgencyRole.AGENCY_ADMIN] },
-      },
-    });
+    const invitation = await prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM agencies WHERE id = ${agencyId}::uuid FOR UPDATE`;
+      const membership = await tx.agencyMember.findFirst({
+        where: {
+          agencyId,
+          userId,
+          status: 'ACTIVE',
+          role: { in: [AgencyRole.AGENCY_OWNER, AgencyRole.AGENCY_ADMIN] },
+        },
+      });
 
-    if (!membership) {
-      throw new Error('Unauthorized: Only agency owners and admins can issue invitations');
-    }
+      if (!membership) {
+        throw new Error('Unauthorized: Only agency owners and admins can issue invitations');
+      }
 
-    if (input.role === AgencyRole.AGENCY_ADMIN && membership.role !== AgencyRole.AGENCY_OWNER) {
-      throw new Error('Unauthorized: Only an agency owner can invite agency administrators');
-    }
+      if (input.role === AgencyRole.AGENCY_ADMIN && membership.role !== AgencyRole.AGENCY_OWNER) {
+        throw new Error('Unauthorized: Only an agency owner can invite agency administrators');
+      }
 
-    // Generate secure 16-byte random token
-    const inviteToken = `INV-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      const email = input.email.toLowerCase().trim();
+      const role = input.role || AgencyRole.AGENT;
+      const existing = await tx.agencyInvitation.findFirst({
+        where: { agencyId, email, role, status: 'PENDING', expiresAt: { gt: new Date() } },
+      });
+      if (existing) return existing;
+      const inviteToken = `INV-${crypto.randomBytes(8).toString('hex').toUpperCase()}`;
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const invitation = await tx.agencyInvitation.create({
+        data: {
+          agencyId,
+          email,
+          role,
+          inviteToken,
+          expiresAt,
+          invitedById: userId,
+        },
+      });
 
-    const invitation = await prisma.agencyInvitation.create({
-      data: {
-        agencyId,
-        email: input.email.toLowerCase().trim(),
-        role: input.role || AgencyRole.AGENT,
-        inviteToken,
-        expiresAt,
-        invitedById: userId,
-      },
-    });
-
-    await createAuditLog({
-      actorUserId: userId,
-      action: 'AGENCY_AGENT_INVITED',
-      entityType: 'AGENCY_INVITATION',
-      entityId: invitation.id,
-      newValues: {
-        agencyId,
-        invitedEmail: invitation.email,
-        role: invitation.role,
-      },
-      ipAddress,
-      userAgent,
+      await tx.auditLog.create({ data: {
+        actorUserId: userId,
+        action: 'AGENCY_AGENT_INVITED',
+        entityType: 'AGENCY_INVITATION',
+        entityId: invitation.id,
+        newValues: {
+          agencyId,
+          invitedEmail: invitation.email,
+          role: invitation.role,
+        },
+        ipAddress,
+        userAgent,
+      } });
+      await queueInvitation(tx, invitation);
+      return invitation;
     });
 
     return {

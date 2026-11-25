@@ -14,6 +14,8 @@ import { Prisma } from '@prisma/client';
 
 vi.mock('../src/lib/prisma', () => {
   const mockTx = {
+    user: { findMany: vi.fn().mockResolvedValue([{ id: 'recipient', email: 'synthetic@example.invalid' }]) },
+    notificationLog: { createMany: vi.fn() },
     auditLog: { create: vi.fn() },
     $executeRaw: vi.fn(),
     lead: {

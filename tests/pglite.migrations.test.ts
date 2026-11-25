@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
 import { PGlite } from '@electric-sql/pglite';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
@@ -17,21 +16,7 @@ describe('Isolated PostgreSQL (PGlite) Combined Migration & Schema Verification'
       .map((d) => d.name)
       .sort();
 
-    // Also include Codex notification_outbox migration from git branch 2c26ffb in chronological order
-    let codexSql = '';
-    try {
-      codexSql = execSync(
-        'git show 2c26ffb:prisma/migrations/20261125000000_notification_outbox/migration.sql',
-        { encoding: 'utf8' }
-      );
-    } catch {
-      codexSql = '';
-    }
-
     for (const dir of dirs) {
-      if (dir === '20261125120000_beta_sprint_foundations' && codexSql) {
-        await db.exec(codexSql);
-      }
       const sql = fs.readFileSync(path.join(migrationsDir, dir, 'migration.sql'), 'utf8');
       await db.exec(sql);
     }
@@ -127,5 +112,14 @@ describe('Isolated PostgreSQL (PGlite) Combined Migration & Schema Verification'
       [userId]
     );
     expect(legalRes.rows[0].document_key).toBe('GOVERNANCE_POLICY');
+
+    // Notification outbox (Codex 20261125000000_notification_outbox)
+    const notifRes = await db.query<{ status: string }>(
+      `INSERT INTO notification_logs (id, event_key, entity_id, recipient_id, recipient_email, reference, template_name, subject, status)
+       VALUES (gen_random_uuid(), 'evt-pglite-1', $1, $2, 'pglite@example.com', 'REF-STRUCT-1', 'direct_submission', 'New referral for intake', 'PENDING')
+       RETURNING status;`,
+      [leadRes.rows[0].id, userId]
+    );
+    expect(notifRes.rows[0].status).toBe('PENDING');
   });
 });
