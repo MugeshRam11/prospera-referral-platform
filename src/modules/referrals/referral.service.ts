@@ -1,4 +1,4 @@
-import { LeadStatus, Role, AccountStatus, Service, AgentType, AgencyRole } from '@prisma/client';
+import { LeadStatus, Role, AccountStatus, Service, AgentType, AgencyRole, Prisma } from '@prisma/client';
 import {
   IReferralRepository,
   getReferralRepository,
@@ -14,6 +14,7 @@ import {
   AssignReferralInput,
   ListReferralsQuery,
 } from './referral.schemas';
+import { formatStructuredRequirements, getServiceMetadataDefaults } from './service-catalog.config';
 import { AuthenticatedUser } from '../../types';
 import { AppError } from '../auth/auth.service';
 import crypto from 'crypto';
@@ -89,8 +90,14 @@ export class ReferralService {
     const initialStatus = input.asDraft || pending ? LeadStatus.DRAFT : LeadStatus.SUBMITTED;
     const transitionNote = pending ? 'Submitted for agency review' : input.asDraft ? 'Draft referral created' : 'Submitted to Prospera';
 
+    const formattedRequirements = input.requirements?.trim()
+      || (input.structuredData ? formatStructuredRequirements(input.structuredData as Record<string, unknown>) : undefined);
+
     return this.repo.createLead({
-      requirements: input.requirements,
+      packageId: input.packageId ?? null,
+      propertyListingId: input.propertyListingId ?? null,
+      structuredData: (input.structuredData ?? null) as Prisma.InputJsonValue | null,
+      requirements: formattedRequirements,
       demoPropertyId: input.demoPropertyId,
       submissionKey: input.submissionKey,
       originatingAgencyId: agencyMember ? actor.agencyId : null,
@@ -114,10 +121,26 @@ export class ReferralService {
   }
 
   /**
-   * Get all active services with commission rules
+   * Get all active services with commission rules, packages, and catalog metadata
    */
   async getServices(): Promise<Service[]> {
-    return this.repo.listActiveServices();
+    const services = await this.repo.listActiveServices();
+    return services.map((service) => {
+      const defaults = getServiceMetadataDefaults(service.slug);
+      const existingPackages = (service as Service & { packages?: unknown[] }).packages;
+      return {
+        ...service,
+        formType: service.formType || defaults.formType,
+        eligibilityInfo: service.eligibilityInfo || defaults.eligibilityInfo,
+        requiredDocs: service.requiredDocs || defaults.requiredDocs,
+        expectedWorkflow: service.expectedWorkflow || defaults.expectedWorkflow,
+        packages: existingPackages && existingPackages.length > 0 ? existingPackages : (defaults.defaultPackages || []),
+        catalogMeta: {
+          categoryGroup: defaults.categoryGroup,
+          commissionDisclosure: defaults.commissionDisclosure,
+        },
+      };
+    });
   }
 
   /**
@@ -304,9 +327,15 @@ export class ReferralService {
       throw new AppError(400, `Cannot update referral in terminal '${lead.status}' status`);
     }
 
+    const formattedRequirements = input.requirements
+      ?? (input.structuredData ? formatStructuredRequirements(input.structuredData as Record<string, unknown>) : undefined);
+
     return this.repo.updateLead(id, {
       revision: lead.revision,
-      requirements: input.requirements,
+      packageId: input.packageId,
+      propertyListingId: input.propertyListingId,
+      structuredData: input.structuredData !== undefined ? (input.structuredData as Prisma.InputJsonValue | null) : undefined,
+      requirements: formattedRequirements,
       clientName: input.clientName,
       clientEmail: input.clientEmail,
       clientPhone: input.clientPhone,

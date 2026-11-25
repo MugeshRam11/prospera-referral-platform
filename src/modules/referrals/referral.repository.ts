@@ -61,6 +61,9 @@ export interface ListLeadsParams {
 }
 
 export interface CreateLeadRecordInput {
+  packageId?: string | null;
+  propertyListingId?: string | null;
+  structuredData?: Prisma.InputJsonValue | null;
   demoPropertyId?: string;
   submissionKey?: string;
   requirements?: string;
@@ -84,6 +87,9 @@ export interface CreateLeadRecordInput {
 }
 
 export interface UpdateLeadRecordInput {
+  packageId?: string | null;
+  propertyListingId?: string | null;
+  structuredData?: Prisma.InputJsonValue | null;
   requirements?: string;
   revision?: number;
   clientName?: string;
@@ -282,6 +288,9 @@ export class PrismaReferralRepository implements IReferralRepository {
           currency: data.currency ?? 'AED',
           notes: data.notes ?? null,
           status: initialStatus,
+          packageId: data.packageId ?? null,
+          propertyListingId: data.propertyListingId ?? null,
+          structuredData: data.structuredData ?? undefined,
           demoPropertyId: data.demoPropertyId ?? null,
           submissionKey: data.submissionKey ?? null,
           requirements: data.requirements ?? null,
@@ -397,6 +406,9 @@ export class PrismaReferralRepository implements IReferralRepository {
   async updateLead(id: string, data: UpdateLeadRecordInput): Promise<LeadWithDetails> {
     const updateData: Prisma.LeadUpdateInput = {};
 
+    if (data.packageId !== undefined) updateData.packageId = data.packageId;
+    if (data.propertyListingId !== undefined) updateData.propertyListingId = data.propertyListingId;
+    if (data.structuredData !== undefined) updateData.structuredData = data.structuredData ?? Prisma.JsonNull;
     if (data.requirements !== undefined) updateData.requirements = data.requirements;
     if (data.clientName !== undefined) updateData.clientName = data.clientName;
     if (data.clientEmail !== undefined) updateData.clientEmail = data.clientEmail;
@@ -530,6 +542,7 @@ export class PrismaReferralRepository implements IReferralRepository {
       where: { isActive: true },
       include: {
         category: true,
+        packages: { where: { isActive: true }, orderBy: { displayOrder: 'asc' } },
         commissionRules: { where: { isActive: true } },
       },
       orderBy: { name: 'asc' },
@@ -582,6 +595,10 @@ export class InMemoryReferralRepository implements IReferralRepository {
       slug: data.slug ?? `service-${id.substring(0, 8)}`,
       name: data.name ?? 'UAE Business Setup',
       description: data.description ?? 'Company incorporation',
+      eligibilityInfo: data.eligibilityInfo ?? null,
+      requiredDocs: data.requiredDocs ?? null,
+      expectedWorkflow: data.expectedWorkflow ?? null,
+      formType: data.formType ?? null,
       defaultPartnerCommissionBps: data.defaultPartnerCommissionBps ?? 200,
       defaultAgentCommissionBps: data.defaultAgentCommissionBps ?? 100,
       isActive: data.isActive ?? true,
@@ -681,12 +698,21 @@ export class InMemoryReferralRepository implements IReferralRepository {
       customPartnerCommissionBps: null,
       customAgentCommissionBps: null,
       status: initialStatus,
+      packageId: data.packageId ?? null,
+      propertyListingId: data.propertyListingId ?? null,
+      structuredData: (data.structuredData ?? null) as Prisma.JsonValue,
       demoPropertyId: data.demoPropertyId ?? null,
       submissionKey: data.submissionKey ?? null,
       requirements: data.requirements ?? null,
       originatingAgencyId: data.originatingAgencyId ?? null,
       agencyReviewStage: data.agencyReviewStage ?? null,
       consentAt: data.consentAt ?? null,
+      crmLeadId: null,
+      crmSyncStatus: null,
+      crmLastSyncedAt: null,
+      crmStage: null,
+      commissionRuleId: null,
+      commissionRuleVersion: null,
       revision: 0,
       wonAt: null,
       lostReasonId: null,
@@ -807,6 +833,9 @@ export class InMemoryReferralRepository implements IReferralRepository {
     const updated: Lead = {
       ...existing,
       revision: existing.revision + 1,
+      ...(data.packageId !== undefined && { packageId: data.packageId }),
+      ...(data.propertyListingId !== undefined && { propertyListingId: data.propertyListingId }),
+      ...(data.structuredData !== undefined && { structuredData: data.structuredData as Prisma.JsonValue }),
       ...(data.requirements !== undefined && { requirements: data.requirements }),
       ...(data.clientName !== undefined && { clientName: data.clientName }),
       ...(data.clientEmail !== undefined && { clientEmail: data.clientEmail }),

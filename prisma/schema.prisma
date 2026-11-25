@@ -403,6 +403,10 @@ model Service {
   slug                        String           @unique @db.VarChar(100)
   name                        String           @db.VarChar(255)
   description                 String?          @db.Text
+  eligibilityInfo             String?          @map("eligibility_info") @db.Text
+  requiredDocs                Json?            @map("required_docs")
+  expectedWorkflow            String?          @map("expected_workflow") @db.Text
+  formType                    String?          @map("form_type") @db.VarChar(50)
   defaultPartnerCommissionBps Int              @default(0) @map("default_partner_commission_bps")
   defaultAgentCommissionBps   Int              @default(0) @map("default_agent_commission_bps")
   isActive                    Boolean          @default(true) @map("is_active")
@@ -410,23 +414,52 @@ model Service {
   updatedAt                   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
   leads                       Lead[]
   commissionRules             CommissionRule[]
+  packages                    ServicePackage[]
 
   @@map("services")
+}
+
+model ServicePackage {
+  id           String   @id @default(uuid()) @db.Uuid
+  serviceId    String   @map("service_id") @db.Uuid
+  service      Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  slug         String   @db.VarChar(100)
+  name         String   @db.VarChar(255)
+  description  String?  @db.Text
+  visaCount    Int?     @map("visa_count")
+  basePriceAed Decimal? @map("base_price_aed") @db.Decimal(12, 2)
+  displayOrder Int      @default(0) @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([serviceId, slug])
+  @@index([serviceId, isActive])
+  @@map("service_packages")
 }
 
 model CommissionRule {
   id                   String    @id @default(uuid()) @db.Uuid
   serviceId            String?   @map("service_id") @db.Uuid
   service              Service?  @relation(fields: [serviceId], references: [id])
+  propertyListingId    String?   @map("property_listing_id") @db.Uuid
   ruleName             String    @map("rule_name") @db.VarChar(255)
+  ruleType             String    @default("PERCENTAGE") @map("rule_type") @db.VarChar(20)
   minDealValue         Decimal   @default(0.00) @map("min_deal_value") @db.Decimal(12, 2)
   maxDealValue         Decimal?  @map("max_deal_value") @db.Decimal(12, 2)
   partnerCommissionBps Int       @map("partner_commission_bps")
   agentCommissionBps   Int       @map("agent_commission_bps")
+  fixedPartnerAmount   Decimal?  @map("fixed_partner_amount") @db.Decimal(12, 2)
+  fixedAgentAmount     Decimal?  @map("fixed_agent_amount") @db.Decimal(12, 2)
+  eligibilityConditions String?  @map("eligibility_conditions") @db.Text
+  requiresApproval     Boolean   @default(true) @map("requires_approval")
+  version              Int       @default(1)
   validFrom            DateTime  @map("valid_from") @db.Date
   validUntil           DateTime? @map("valid_until") @db.Date
   isActive             Boolean   @default(true) @map("is_active")
+  updatedById          String?   @map("updated_by_id") @db.Uuid
   createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   @@map("commission_rules")
 }
@@ -467,11 +500,20 @@ model Lead {
   customAgentCommissionBps   Int?       @map("custom_agent_commission_bps")
 
   requirements               String? @db.Text
+  packageId                  String? @map("package_id") @db.Uuid
+  structuredData             Json?   @map("structured_data")
+  propertyListingId          String? @map("property_listing_id") @db.Uuid
   demoPropertyId             String? @map("demo_property_id") @db.VarChar(64)
   submissionKey              String? @map("submission_key") @db.Uuid
   originatingAgencyId        String? @map("originating_agency_id") @db.Uuid
   agencyReviewStage          AgencyReviewStage? @map("agency_review_stage")
   consentAt                  DateTime? @map("consent_at") @db.Timestamptz
+  crmLeadId                  String? @map("crm_lead_id") @db.VarChar(128)
+  crmSyncStatus              String? @map("crm_sync_status") @db.VarChar(40)
+  crmLastSyncedAt            DateTime? @map("crm_last_synced_at") @db.Timestamptz
+  crmStage                   String? @map("crm_stage") @db.VarChar(80)
+  commissionRuleId           String? @map("commission_rule_id") @db.Uuid
+  commissionRuleVersion      Int?    @map("commission_rule_version")
   revision                   Int @default(0)
   status                     LeadStatus @default(SUBMITTED)
   wonAt                      DateTime?  @map("won_at") @db.Timestamptz
@@ -695,4 +737,77 @@ model Orientation {
   step      Int @default(0)
   state     String @default("active") @db.VarChar(12)
   @@map("orientations")
+}
+
+// ----------------------------------------------------------------------------
+// 9. PROPERTY INVENTORY, CRM SYNC & LEGAL GOVERNANCE
+// ----------------------------------------------------------------------------
+
+model PropertyListing {
+  id               String    @id @default(uuid()) @db.Uuid
+  externalSource   String    @default("LEADRAT") @map("external_source") @db.VarChar(50)
+  externalId       String?   @map("external_id") @db.VarChar(128)
+  title            String    @db.VarChar(255)
+  projectName      String?   @map("project_name") @db.VarChar(255)
+  developer        String?   @db.VarChar(255)
+  location         String    @db.VarChar(255)
+  classification   String    @default("OFF_PLAN") @db.VarChar(30)
+  propertyType     String    @map("property_type") @db.VarChar(100)
+  unitType         String?   @map("unit_type") @db.VarChar(100)
+  bedrooms         String?   @db.VarChar(50)
+  areaSqFt         Decimal?  @map("area_sq_ft") @db.Decimal(10, 2)
+  priceAed         Decimal?  @map("price_aed") @db.Decimal(14, 2)
+  currency         String    @default("AED") @db.VarChar(3)
+  availability     String    @default("AVAILABLE") @db.VarChar(40)
+  images           Json?
+  sourcePayload    Json?     @map("source_payload")
+  editorialSummary String?   @map("editorial_summary") @db.Text
+  status           String    @default("IMPORTED") @db.VarChar(30)
+  commissionRuleId String?   @map("commission_rule_id") @db.Uuid
+  lastSyncedAt     DateTime? @map("last_synced_at") @db.Timestamptz
+  reviewedById     String?   @map("reviewed_by_id") @db.Uuid
+  reviewedAt       DateTime? @map("reviewed_at") @db.Timestamptz
+  publishedAt      DateTime? @map("published_at") @db.Timestamptz
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([externalSource, externalId])
+  @@index([status, location])
+  @@map("property_listings")
+}
+
+model CrmSyncEvent {
+  id              String    @id @default(uuid()) @db.Uuid
+  leadId          String    @map("lead_id") @db.Uuid
+  direction       String    @db.VarChar(20)
+  eventType       String    @map("event_type") @db.VarChar(60)
+  idempotencyKey  String    @unique @map("idempotency_key") @db.VarChar(128)
+  status          String    @default("PENDING") @db.VarChar(30)
+  attempts        Int       @default(0)
+  nextRetryAt     DateTime? @map("next_retry_at") @db.Timestamptz
+  externalId      String?   @map("external_id") @db.VarChar(128)
+  payload         Json?
+  responseSummary Json?     @map("response_summary")
+  errorMessage    String?   @map("error_message") @db.Text
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([leadId, createdAt(sort: Desc)])
+  @@index([status, nextRetryAt])
+  @@map("crm_sync_events")
+}
+
+model LegalDocumentAcceptance {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  documentKey String   @map("document_key") @db.VarChar(60)
+  version     String   @db.VarChar(32)
+  required    Boolean  @default(true)
+  acceptedAt  DateTime @default(now()) @map("accepted_at") @db.Timestamptz
+  ipAddress   String?  @map("ip_address") @db.VarChar(45)
+  userAgent   String?  @map("user_agent") @db.VarChar(512)
+
+  @@unique([userId, documentKey, version])
+  @@index([userId, documentKey])
+  @@map("legal_document_acceptances")
 }

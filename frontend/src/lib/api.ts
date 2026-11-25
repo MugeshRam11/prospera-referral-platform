@@ -32,6 +32,21 @@ const TOKEN_KEY = 'prospera_corporate_session_token';
 const USER_KEY = 'prospera_corporate_user';
 
 export class ApiClient {
+  private static meCache: { value: UserSummary; expiresAt: number } | null = null;
+  private static meInFlight: Promise<UserSummary> | null = null;
+  private static servicesCache: { value: ServiceItem[]; expiresAt: number } | null = null;
+  private static servicesInFlight: Promise<ServiceItem[]> | null = null;
+
+  public static invalidateSessionCache(): void {
+    this.meCache = null;
+    this.meInFlight = null;
+  }
+
+  public static invalidateServicesCache(): void {
+    this.servicesCache = null;
+    this.servicesInFlight = null;
+  }
+
   public static getToken(): string | null {
     if (typeof window === 'undefined') return null;
     return localStorage.getItem(TOKEN_KEY);
@@ -46,6 +61,7 @@ export class ApiClient {
     if (typeof window === 'undefined') return;
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    this.invalidateSessionCache();
   }
 
   public static getStoredUser(): UserSummary | null {
@@ -89,8 +105,10 @@ export class ApiClient {
         headers,
       });
     } catch (networkErr: unknown) {
-      const msg = networkErr instanceof Error ? networkErr.message : 'Network request failed';
-      throw new Error(`Unable to reach Prospera API server (${msg}). Please verify connectivity.`);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[ApiClient] Network request failed:', endpoint, networkErr);
+      }
+      throw new Error('Unable to connect right now. Please check your internet connection and try again.');
     }
 
     let data: any = null;
@@ -168,13 +186,30 @@ export class ApiClient {
     });
   }
 
-  public static async getMe(): Promise<UserSummary> {
-    const res = await this.request<{ user: UserSummary; session: unknown } | UserSummary>('/auth/me');
-    const user: UserSummary = (res as any)?.user ? (res as any).user : (res as UserSummary);
-    if (user) {
-      this.setStoredUser(user);
+  public static async getMe(forceRefresh = false): Promise<UserSummary> {
+    const now = Date.now();
+    if (!forceRefresh && this.meCache && this.meCache.expiresAt > now) {
+      return this.meCache.value;
     }
-    return user;
+    if (!forceRefresh && this.meInFlight) {
+      return this.meInFlight;
+    }
+
+    const req = this.request<{ user: UserSummary; session: unknown } | UserSummary>('/auth/me')
+      .then((res) => {
+        const user: UserSummary = (res as any)?.user ? (res as any).user : (res as UserSummary);
+        if (user) {
+          this.setStoredUser(user);
+          this.meCache = { value: user, expiresAt: Date.now() + 15_000 };
+        }
+        return user;
+      })
+      .finally(() => {
+        this.meInFlight = null;
+      });
+
+    this.meInFlight = req;
+    return req;
   }
 
   public static async logout(): Promise<void> {
@@ -771,6 +806,9 @@ export class ApiClient {
   public static async editReferral(id: string, data: {
     clientName: string; clientPhone: string; clientEmail: string | null; notes: string;
     expectedDealValue: number; requirements: string;
+    packageId?: string | null;
+    propertyListingId?: string | null;
+    structuredData?: Record<string, unknown> | null;
   }) {
     return this.request<LeadItem>('/referrals/' + id, { method: 'PATCH', body: JSON.stringify(data) });
   }
@@ -805,6 +843,9 @@ export class ApiClient {
 
   public static async createReferral(data: {
     serviceId: string;
+    packageId?: string;
+    propertyListingId?: string;
+    structuredData?: Record<string, unknown>;
     clientName: string;
     clientPhone: string;
     clientEmail?: string;
@@ -882,9 +923,27 @@ export class ApiClient {
     }
   }
 
-  public static async getServices(): Promise<ServiceItem[]> {
-    const res = await this.request<ServiceItem[]>('/referrals/services');
-    return res || [];
+  public static async getServices(forceRefresh = false): Promise<ServiceItem[]> {
+    const now = Date.now();
+    if (!forceRefresh && this.servicesCache && this.servicesCache.expiresAt > now) {
+      return this.servicesCache.value;
+    }
+    if (!forceRefresh && this.servicesInFlight) {
+      return this.servicesInFlight;
+    }
+
+    const req = this.request<ServiceItem[]>('/referrals/services')
+      .then((res) => {
+        const list = res || [];
+        this.servicesCache = { value: list, expiresAt: Date.now() + 30_000 };
+        return list;
+      })
+      .finally(() => {
+        this.servicesInFlight = null;
+      });
+
+    this.servicesInFlight = req;
+    return req;
   }
 
   public static async getCommissions() {

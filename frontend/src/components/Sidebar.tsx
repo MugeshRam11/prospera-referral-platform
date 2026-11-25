@@ -316,7 +316,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-[#0A1227] text-white flex flex-col justify-between transition-transform duration-300 lg:translate-x-0 ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-72 bg-[#0A1227] text-white flex flex-col justify-between transition-transform duration-300 lg:translate-x-0 ${
           isOpenMobile ? 'translate-x-0' : '-translate-x-full'
         } border-r border-slate-800/80 shadow-2xl overflow-y-auto`}
         aria-label="Application Navigation Sidebar"
@@ -324,9 +324,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Top Header & Navigation */}
         <div className="flex flex-col flex-1">
           {/* Brand Header */}
-          <div className="p-5 pb-6 flex items-center justify-between border-b border-slate-800/60">
-            <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-9 h-9 relative flex-shrink-0">
+          <div className="px-6 py-5 flex items-center justify-between border-b border-slate-800/60">
+            <Link href="/" className="flex items-center gap-3 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-lg">
+              <div className="w-10 h-10 relative flex-shrink-0">
                 <Image
                   src={prosperaWhiteIcon}
                   alt="Prospera Monogram"
@@ -339,8 +339,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className="text-white font-extrabold text-lg tracking-wider leading-none">
                   PROSPERA
                 </span>
-                <span className="text-slate-400 text-[10px] tracking-tight mt-1">
-                  More Opportunities. Greater Value.
+                <span className="text-slate-400 text-xs tracking-tight mt-1">
+                  Referral &amp; Advisory Portal
                 </span>
               </div>
             </Link>
@@ -348,7 +348,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {onCloseMobile && (
               <button
                 onClick={onCloseMobile}
-                className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                className="lg:hidden p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 aria-label="Close navigation"
               >
                 <X size={18} />
@@ -357,11 +357,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* Navigation Sections */}
-          <nav className="p-3 space-y-4 mt-1">
+          <nav className="px-4 py-4 space-y-5 mt-1">
             {navSections.map((section, sIdx) => (
-              <div key={sIdx} className="space-y-1">
+              <div key={sIdx} className="space-y-1.5">
                 {section.title && (
-                  <div className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400/70">
+                  <div className="px-3.5 pt-1 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
                     {section.title}
                   </div>
                 )}
@@ -377,21 +377,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       key={item.href}
                       href={item.href}
                       onClick={onCloseMobile}
-                      className={`flex items-center justify-between px-3.5 py-2.2 rounded-xl text-xs font-medium transition-all duration-150 ${
+                      aria-current={isActive ? 'page' : undefined}
+                      className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${
                         isActive
                           ? 'bg-[#2563EB] text-white shadow-md shadow-blue-600/30 font-semibold'
-                          : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                          : 'text-slate-200 hover:text-white hover:bg-slate-800/70'
                       }`}
                     >
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-3">
                         <Icon
-                          size={16}
-                          className={isActive ? 'text-white' : 'text-slate-400'}
+                          size={18}
+                          className={isActive ? 'text-white flex-shrink-0' : 'text-slate-400 flex-shrink-0'}
                         />
                         <span>{item.label}</span>
                       </div>
                       {item.badge !== undefined && (
-                        <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-500/20 text-blue-300">
+                        <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-500/20 text-blue-200">
                           {item.badge}
                         </span>
                       )}
@@ -458,11 +459,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
 
               <div className="flex flex-col min-w-0">
-                <span className="text-white text-xs font-bold leading-tight truncate">
+                <span className="text-white text-sm font-semibold leading-tight truncate">
                   {roleInfo.title}
                 </span>
                 <span
-                  className="text-[10px] text-slate-400 font-medium leading-none mt-0.5 truncate"
+                  className="text-xs text-slate-400 font-medium leading-tight mt-0.5 truncate"
                   title={roleInfo.badge}
                 >
                   {roleInfo.badge}

@@ -197,15 +197,41 @@ export interface MyAgencyResponse {
   agency: AgencyDetails | null;
 }
 
+export type ServiceFormType =
+  | 'REAL_ESTATE'
+  | 'GOLDEN_VISA'
+  | 'MORTGAGE'
+  | 'COMPANY_FORMATION'
+  | 'CORPORATE_ADVISORY';
+
+export interface ServicePackageItem {
+  id?: string;
+  slug: string;
+  name: string;
+  description?: string | null;
+  visaCount?: number | null;
+  basePriceAed?: number | string | null;
+  isActive?: boolean;
+}
+
 export interface ServiceItem {
   id: string;
   slug: string;
   name: string;
   description?: string | null;
+  eligibilityInfo?: string | null;
+  requiredDocs?: string[] | null;
+  expectedWorkflow?: string | null;
+  formType?: ServiceFormType | null;
+  packages?: ServicePackageItem[];
+  catalogMeta?: {
+    categoryGroup: string;
+    commissionDisclosure: string;
+  };
   defaultPartnerCommissionBps: number;
   defaultAgentCommissionBps: number;
   isActive: boolean;
-  category?: { id: string; name: string } | null;
+  category?: { id: string; name: string; slug?: string } | null;
 }
 
 export interface LeadStatusHistoryItem {
@@ -228,8 +254,15 @@ export interface LeadItem {
   originatingAgencyId?: string | null;
   agencyReviewStage?: 'PENDING_AGENCY_APPROVAL' | 'AGENCY_CHANGES_REQUESTED' | 'AGENCY_APPROVED' | null;
   requirements?: string | null;
+  packageId?: string | null;
+  propertyListingId?: string | null;
+  structuredData?: Record<string, unknown> | null;
   demoPropertyId?: string | null;
   consentAt?: string | null;
+  crmLeadId?: string | null;
+  crmSyncStatus?: string | null;
+  crmLastSyncedAt?: string | null;
+  crmStage?: string | null;
   id: string;
   referenceNo: string;
   partnerId: string;

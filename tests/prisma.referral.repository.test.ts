@@ -275,6 +275,7 @@ describe('PrismaReferralRepository (Isolated Mocked Delegate Tests)', () => {
         where: { isActive: true },
         include: {
           category: true,
+          packages: { where: { isActive: true }, orderBy: { displayOrder: 'asc' } },
           commissionRules: { where: { isActive: true } },
         },
         orderBy: { name: 'asc' },

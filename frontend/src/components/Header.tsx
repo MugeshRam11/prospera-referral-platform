@@ -2,18 +2,17 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import {
   Search,
-  Bell,
   Coins,
   Menu,
   ChevronDown,
+  ChevronRight,
   Plus,
   ShieldCheck,
   Headphones,
   UserPlus,
-  ArrowRight,
   LogOut,
   Building2,
   FileText,
@@ -34,8 +33,55 @@ export const Header: React.FC<HeaderProps> = ({
   onSearch,
   onToggleMobileMenu,
 }) => {
+  const pathname = usePathname();
   const [searchVal, setSearchVal] = useState('');
   const [showUserDropdown, setShowUserDropdown] = useState(false);
+
+  const breadcrumbs = React.useMemo(() => {
+    const segments = pathname.split('/').filter(Boolean);
+    if (segments.length === 0) return [{ label: 'Dashboard', href: '/' }];
+    const labels: Record<string, string> = {
+      admin: 'Admin',
+      agency: 'Agency Console',
+      coordinator: 'Coordinator',
+      partner: 'Partner Portal',
+      referrals: 'Referrals',
+      new: 'New Referral',
+      services: 'Services & Properties',
+      commissions: 'Commissions',
+      withdrawals: 'Withdrawals',
+      kyc: 'Verification & KYC',
+      settings: 'Settings',
+      support: 'Support',
+      users: 'Users',
+      agencies: 'Agencies',
+      agents: 'Agents',
+      coordinators: 'Coordinators',
+      partners: 'Partners',
+      banking: 'Banking',
+      reports: 'Reports',
+      'audit-logs': 'Audit Logs',
+      'demo-personas': 'Demo Personas',
+    };
+    return segments.map((seg, idx) => ({
+      label: labels[seg] || seg.replace(/-/g, ' '),
+      href: '/' + segments.slice(0, idx + 1).join('/'),
+    }));
+  }, [pathname]);
+
+  const accountStatusPill = React.useMemo(() => {
+    if (!user) return null;
+    if (user.accountStatus === 'ACTIVE') {
+      return { label: 'Verified Active', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+    }
+    if (user.accountStatus === 'PENDING_APPROVAL') {
+      return { label: 'Pending Approval', cls: 'bg-amber-50 text-amber-800 border-amber-200' };
+    }
+    if (user.accountStatus === 'PENDING_VERIFICATION') {
+      return { label: 'Verify Email', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
+    }
+    return { label: user.accountStatus.replace(/_/g, ' '), cls: 'bg-rose-50 text-rose-700 border-rose-200' };
+  }, [user]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchVal(e.target.value);
@@ -63,38 +109,60 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="h-18 px-6 sm:px-8 bg-transparent flex items-center justify-between gap-4 sticky top-0 z-30">
-      <div className="flex items-center gap-3 flex-1 max-w-xl">
+    <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-5 sm:px-8 py-3 flex items-center justify-between gap-4 sticky top-0 z-30">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
         {/* Mobile Hamburger Toggle */}
         {onToggleMobileMenu && (
           <button
             onClick={onToggleMobileMenu}
-            className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 bg-white shadow-2xs"
+            className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 bg-white shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             aria-label="Toggle navigation menu"
           >
             <Menu size={20} />
           </button>
         )}
 
-        {/* Global Contextual Search Bar */}
-        <div className="relative w-full max-w-md">
-          <Search
-            size={17}
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
-          />
-          <input
-            type="text"
-            className="w-full bg-white hover:bg-slate-50/80 focus:bg-white text-slate-900 placeholder:text-slate-400 text-sm pl-10 pr-4 py-2 rounded-xl border border-slate-200/90 shadow-2xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-            placeholder={
-              user?.role === 'ADMIN'
-                ? 'Search users, agencies, or audit logs...'
-                : user?.role === 'COORDINATOR'
-                ? 'Search assigned leads, clients, or services...'
-                : 'Search properties, clients, or referrals...'
-            }
-            value={searchVal}
-            onChange={handleSearchChange}
-          />
+        <div className="flex flex-col gap-1 flex-1 min-w-0">
+          {/* Breadcrumbs */}
+          <nav aria-label="Breadcrumb" className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500">
+            <Link href="/" className="hover:text-slate-800 font-medium">
+              Prospera
+            </Link>
+            {breadcrumbs.map((crumb, idx) => (
+              <React.Fragment key={crumb.href}>
+                <ChevronRight size={13} className="text-slate-400 flex-shrink-0" />
+                {idx === breadcrumbs.length - 1 ? (
+                  <span className="font-semibold text-slate-800 capitalize truncate">{crumb.label}</span>
+                ) : (
+                  <Link href={crumb.href} className="hover:text-slate-800 capitalize truncate">
+                    {crumb.label}
+                  </Link>
+                )}
+              </React.Fragment>
+            ))}
+          </nav>
+
+          {/* Global Contextual Search Bar */}
+          <div className="relative w-full max-w-md">
+            <Search
+              size={17}
+              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              type="text"
+              aria-label="Global search"
+              className="w-full bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-slate-900 placeholder:text-slate-400 text-sm pl-10 pr-4 py-2 rounded-xl border border-slate-200/90 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              placeholder={
+                user?.role === 'ADMIN'
+                  ? 'Search users, agencies, or audit logs...'
+                  : user?.role === 'COORDINATOR'
+                  ? 'Search assigned leads, clients, or services...'
+                  : 'Search properties, clients, or referrals...'
+              }
+              value={searchVal}
+              onChange={handleSearchChange}
+            />
+          </div>
         </div>
       </div>
 
@@ -153,6 +221,15 @@ export const Header: React.FC<HeaderProps> = ({
           </Link>
         )}
 
+        {/* Account Status Indicator */}
+        {accountStatusPill && (
+          <span
+            className={`hidden xl:inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${accountStatusPill.cls}`}
+          >
+            {accountStatusPill.label}
+          </span>
+        )}
+
         {/* Operational Pill / Wallet Balance */}
         {user?.role === 'ADMIN' ? (
           <div className="hidden md:flex items-center gap-2 bg-white border border-slate-200/80 rounded-xl px-3 py-2 shadow-2xs">
@@ -207,10 +284,10 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             <div className="hidden md:flex flex-col text-left">
-              <span className="text-xs font-bold text-slate-900 leading-tight truncate max-w-[120px]">
+              <span className="text-sm font-semibold text-slate-900 leading-tight truncate max-w-[140px]">
                 {user?.fullName || 'Prospera Member'}
               </span>
-              <span className="text-[10.5px] text-slate-500 leading-none mt-0.5 truncate max-w-[120px]">
+              <span className="text-xs text-slate-500 leading-tight mt-0.5 truncate max-w-[140px]">
                 {getUserSubtitle()}
               </span>
             </div>

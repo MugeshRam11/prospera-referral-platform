@@ -8,6 +8,10 @@ import { bankingRouter } from '../modules/banking/banking.routes';
 import { agencyRouter } from '../modules/agency/agency.routes';
 import { adminRouter } from '../modules/admin/admin.routes';
 import { documentRouter } from './document.routes';
+import { integrationsRouter } from '../modules/integrations/integrations.routes';
+import { propertyRouter } from '../modules/properties/property.routes';
+import { commissionRulesRouter } from '../modules/commissions/commission-rules.routes';
+import { legalRouter } from '../modules/legal/legal.routes';
 
 const router = Router();
 
@@ -34,6 +38,14 @@ router.use('/agency', agencyRouter);
 
 // Prospera Admin Portal routes
 router.use('/admin', adminRouter);
+router.use('/admin/commission-rules', commissionRulesRouter);
+
+// CRM Integrations & Property Inventory routes
+router.use('/integrations', integrationsRouter);
+router.use('/properties', propertyRouter);
+
+// Legal Governance & Policy Acceptance routes
+router.use('/legal', legalRouter);
 
 // Authorized Private Document Streaming routes
 router.use('/documents', documentRouter);

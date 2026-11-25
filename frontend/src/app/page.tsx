@@ -19,6 +19,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { workflowLabel } from '@/lib/catalogue';
+import { DashboardSkeleton } from '@/components/ui/Skeleton';
 import { LeadItem, ServiceItem, UserSummary } from '../types';
 import { ApiClient } from '../lib/api';
 import heroBg from '../assets/hero-bg.webp';
@@ -87,7 +88,7 @@ export default function DashboardPage() {
     window.dispatchEvent(new CustomEvent('prospera_open_detail', { detail: lead }));
   };
 
-  if (isLoading || !user) return <p role="status">{isLoading ? "Opening dashboard..." : "Dashboard unavailable."}</p>;
+  if (isLoading || !user) return <DashboardSkeleton />;
   return (
     <div className="space-y-6">
       {/* 1. HERO BANNER */}
