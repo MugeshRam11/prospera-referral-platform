@@ -1,3 +1,4 @@
+import { queueReferral } from '../notifications/events';
 import { AgencyReviewStage, Lead, LeadStatus, LeadStatusHistory, Service, User, Prisma, Agency, AgentType } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import crypto from 'crypto';
@@ -302,6 +303,8 @@ export class PrismaReferralRepository implements IReferralRepository {
         },
       });
 
+      if (createdLead.agencyReviewStage === 'PENDING_AGENCY_APPROVAL') await queueReferral(tx, createdLead, 'agency_review');
+      else if (createdLead.status === 'SUBMITTED') await queueReferral(tx, createdLead, 'direct_submission');
       await tx.auditLog.create({ data: {
         actorUserId: data.changedById, entityType: 'LEAD', entityId: createdLead.id,
         action: 'REFERRAL_CREATED', newValues: { referenceNo: data.referenceNo, stage: data.agencyReviewStage ?? initialStatus, ...consentAudit(data.consentAt, data.referenceNo) },
@@ -461,6 +464,14 @@ export class PrismaReferralRepository implements IReferralRepository {
         },
       });
 
+      switch (transition.agencyReviewStage) {
+        case 'PENDING_AGENCY_APPROVAL': await queueReferral(tx, updatedLead, 'agency_review'); break;
+        case 'AGENCY_APPROVED': await queueReferral(tx, updatedLead, 'agency_approved'); break;
+        case 'AGENCY_CHANGES_REQUESTED': await queueReferral(tx, updatedLead, 'changes_requested'); break;
+        default:
+          if (transition.previousStatus === 'DRAFT' && transition.status === 'SUBMITTED') await queueReferral(tx, updatedLead, 'direct_submission');
+          else if (transition.previousStatus !== transition.status) await queueReferral(tx, updatedLead, 'status_changed');
+      }
       await tx.auditLog.create({ data: {
         actorUserId: transition.changedById, entityType: 'LEAD', entityId: id,
         action: 'REFERRAL_STAGE_CHANGED', oldValues: { status: transition.previousStatus },
@@ -509,6 +520,7 @@ export class PrismaReferralRepository implements IReferralRepository {
         });
       }
 
+      if (assignment.agentId) await queueReferral(tx, updatedLead, 'assigned');
       await tx.auditLog.create({ data: {
         actorUserId: assignment.changedById, entityType: 'LEAD', entityId: id, action: 'REFERRAL_ASSIGNED',
         newValues: { agentId: updatedLead.agentId, coordinatorId: updatedLead.coordinatorId, reason: assignment.transitionNote ?? null },

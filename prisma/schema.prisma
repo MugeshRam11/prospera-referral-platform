@@ -145,6 +145,9 @@ enum NotificationChannel {
 }
 
 enum NotificationStatus {
+  PENDING
+  PROCESSING
+  SKIPPED
   SENT
   FAILED
   DELIVERED
@@ -629,6 +632,15 @@ model NotificationLog {
   errorMessage   String?             @map("error_message") @db.Text
   createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz
 
+  eventKey       String?   @unique @map("event_key")
+  entityId       String?   @map("entity_id") @db.Uuid
+  recipientId    String?   @map("recipient_id") @db.Uuid
+  reference      String?
+  attempts       Int       @default(0)
+  availableAt    DateTime  @default(now()) @map("available_at") @db.Timestamptz
+  acceptedAt     DateTime? @map("accepted_at") @db.Timestamptz
+
+  @@index([status, availableAt])
   @@index([recipientEmail, createdAt(sort: Desc)])
   @@map("notification_logs")
 }

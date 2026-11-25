@@ -568,7 +568,7 @@ export class ReferralService {
     return this.repo.assignLead(id, {
       revision: lead.revision,
       coordinatorId: actor.role === Role.COORDINATOR ? actor.id : input.coordinatorId,
-      agentId: input.agentId,
+      agentId: input.agentId === lead.agentId ? undefined : input.agentId,
       changedById: actor.id,
       transitionNote: input.assignmentNote ?? 'Referral assigned',
       statusChange,
