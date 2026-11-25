@@ -67,3 +67,11 @@ The baseline unit run had four fixture setup timeouts. Reusing a fixture passwor
 - Assigned operations in this demo use the existing eligible independent-agent role. A distinct internal-only operations roster requires a business decision. Payout requests remain disabled. The portal only exposes available commission records when supported by stored data.
 - The demo covers the ten listed desktop scenes. Mobile layouts, expiration during an active browser session, every privileged exception and every compliance screen were not independently rehearsed. The screenshot set is available if the temporary host or tunnel is unavailable.
 - No production deployment, migration, password rotation or data reseed was performed. CloudPanel, Odoo and the existing application service were preserved.
+
+## 26 November presenter cue
+
+At the client-details step, leave the declaration unchecked. Enter synthetic service requirements, save the draft and reopen it. At Review, show that Submit referral is disabled. Return to Client and consent, read the declaration, confirm it and submit. Follow the same reference through agency approval, assignment and contact using the scenes above. Use separate fresh phone numbers for the independent-agent and partner submissions.
+
+The audit event identifies the person making the declaration, the text and version they confirmed, the time and the referral reference. To assess the referred person's permission separately, the reviewer should be able to establish who gave permission, when, by which channel, what information could be shared, with whom and for which purpose. Use an approved restricted record or a direct confirmation if evidence is needed. Keep private correspondence and identity documents out of referral notes. Agree the evidence, retention and withdrawal procedure before production.
+
+The four service-specific question sets are optional discovery prompts. Amounts may be approximate. The existing requirements field stores the responses within its 1,200-character limit. The property selector links an illustrative project. Referral email delivery requires a configured transport and verified recipients for each transition.

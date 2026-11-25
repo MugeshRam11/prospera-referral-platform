@@ -14,6 +14,13 @@ export function presentation(slug: string) {
   return { category: 'Advisory', image: corporate, prompt: 'What outcome would the client like from this service?' };
 }
 
+export const referralQuestions: Record<string, string[]> = {
+  'Real estate': ['Property type', 'Location', 'Budget range (AED)', 'Purchase or rental intent', 'Project reference'],
+  Finance: ['Property value (AED)', 'Estimated deposit (AED)', 'Approximate finance required (AED)', 'Employment or income range if relevant'],
+  Residency: ['Eligibility category', 'Approximate salary or investment range if relevant', 'Supporting requirements to discuss'],
+  'Business setup': ['Business activity', 'Preferred jurisdiction', 'Company structure', 'Number of shareholders if known'],
+};
+
 export const demoProperties = [
   { id: 'creek-court', title: 'Creek Court', location: 'Dubai', type: 'Apartment', specs: '2 beds · 2 baths · 112 m²', image: property },
   { id: 'palm-garden', title: 'Palm Garden House', location: 'Abu Dhabi', type: 'Villa', specs: '4 beds · 4 baths · 310 m²', image: office },

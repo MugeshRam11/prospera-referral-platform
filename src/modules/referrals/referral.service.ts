@@ -95,7 +95,7 @@ export class ReferralService {
       submissionKey: input.submissionKey,
       originatingAgencyId: agencyMember ? actor.agencyId : null,
       agencyReviewStage: pending ? 'PENDING_AGENCY_APPROVAL' : null,
-      consentAt: input.consent ? new Date() : null,
+      consentAt: !input.asDraft && input.consent ? new Date() : null,
       referenceNo,
       partnerId,
       coordinatorId: assignedCoordinatorId,

@@ -2,6 +2,15 @@ import { AgencyReviewStage, Lead, LeadStatus, LeadStatusHistory, Service, User, 
 import { prisma } from '../../lib/prisma';
 import crypto from 'crypto';
 
+function consentAudit(at: Date | null | undefined, referenceNo: string) {
+  return at ? { consent: {
+    version: '2026-11-25',
+    declaration: "I confirm that I have obtained the referred client's informed permission to share their personal information with Prospera for the purpose of evaluating, contacting and processing this referral.",
+    declaredAt: at.toISOString(),
+    referenceNo,
+  } } : {};
+}
+
 export interface LeadWithDetails extends Lead {
   partner?: {
     id: string;
@@ -295,7 +304,7 @@ export class PrismaReferralRepository implements IReferralRepository {
 
       await tx.auditLog.create({ data: {
         actorUserId: data.changedById, entityType: 'LEAD', entityId: createdLead.id,
-        action: 'REFERRAL_CREATED', newValues: { referenceNo: data.referenceNo, stage: data.agencyReviewStage ?? initialStatus },
+        action: 'REFERRAL_CREATED', newValues: { referenceNo: data.referenceNo, stage: data.agencyReviewStage ?? initialStatus, ...consentAudit(data.consentAt, data.referenceNo) },
       } });
       const fullLead = await tx.lead.findUniqueOrThrow({
         where: { id: createdLead.id },
@@ -455,7 +464,7 @@ export class PrismaReferralRepository implements IReferralRepository {
       await tx.auditLog.create({ data: {
         actorUserId: transition.changedById, entityType: 'LEAD', entityId: id,
         action: 'REFERRAL_STAGE_CHANGED', oldValues: { status: transition.previousStatus },
-        newValues: { status: transition.status, stage: transition.agencyReviewStage ?? transition.status },
+        newValues: { status: transition.status, stage: transition.agencyReviewStage ?? transition.status, ...consentAudit(transition.consentAt, updatedLead.referenceNo) },
       } });
       const fullLead = await tx.lead.findUniqueOrThrow({
         where: { id },

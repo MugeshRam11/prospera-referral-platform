@@ -60,14 +60,40 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+it('requires a fresh declaration from the draft owner before agency review', async () => {
+  const base = '/api/v1/referrals';
+  const draft = await request(app).post(base).set('Authorization', sessions.member).send({
+    serviceId, clientName: 'Synthetic draft', clientPhone: '0001234999',
+    expectedDealValue: 1000, consent: true, asDraft: true,
+  });
+  expect(draft.status).toBe(201);
+  const lead = draft.body.data;
+  expect(lead.consentAt).toBeNull();
+  const submit = (body: object) => request(app).patch(base + '/' + lead.id + '/status')
+    .set('Authorization', sessions.member).send({ status: 'SUBMITTED', ...body });
+  for (const body of [{}, { consent: false }]) expect((await submit(body)).status).toBe(403);
+  const submitted = await submit({ consent: true });
+  expect(submitted.status).toBe(200);
+  expect(submitted.body.data.agencyReviewStage).toBe('PENDING_AGENCY_APPROVAL');
+  const audit = await prisma.auditLog.findFirstOrThrow({ where: { entityId: lead.id, action: 'REFERRAL_STAGE_CHANGED' } });
+  expect(audit.actorUserId).toBe(ids.member);
+  expect(audit.newValues).toMatchObject({ consent: { version: '2026-11-25', referenceNo: lead.referenceNo } });
+});
+
 it('commits exactly one concurrent submission, approval and assignment with an ordered member timeline', async () => {
   const base = '/api/v1/referrals';
   const payload = { serviceId, clientName: 'Synthetic client', clientPhone: '0001234567', expectedDealValue: 1000, consent: true };
+  for (const consent of [undefined, false]) {
+    const response = await request(app).post(base).set('Authorization', sessions.member).send({ ...payload, consent });
+    expect(response.status).toBe(400);
+  }
   const submit = () => request(app).post(base).set('Authorization', sessions.member).send(payload);
   const submissions = await Promise.all([submit(), submit()]);
   expect(submissions.map(r => r.status).sort()).toEqual([201, 409]);
   const lead = submissions.find(r => r.status === 201)!.body.data;
   expect(lead.agencyReviewStage).toBe('PENDING_AGENCY_APPROVAL');
+  const audit = await prisma.auditLog.findFirstOrThrow({ where: { entityId: lead.id, action: 'REFERRAL_CREATED' } });
+  expect(audit.newValues).toMatchObject({ consent: { version: '2026-11-25', referenceNo: lead.referenceNo, declaredAt: lead.consentAt } });
   const path = base + '/' + lead.id;
   const patch = (who: Persona, suffix: string, body: object) =>
     request(app).patch(path + suffix).set('Authorization', sessions[who]).send(body);

@@ -69,7 +69,7 @@ export function ReferralDetailModal({ lead, user, isOpen, onClose, onStatusUpdat
       <div className="space-y-2 rounded-xl bg-slate-50 p-4"><h3 className="font-bold">{lead.clientName}</h3>
         <p>{lead.clientPhone} {lead.clientEmail}</p><p>{lead.currency} {Number(lead.expectedDealValue).toLocaleString()}</p>
         {property && <p>{property.title} · Illustrative Demo Property</p>}
-        <p>Client consent · {lead.consentAt ? new Date(lead.consentAt).toLocaleString() : 'No confirmation recorded'}</p>
+        <p>Submitter declaration · {lead.consentAt ? new Date(lead.consentAt).toLocaleString() : 'No confirmation recorded'}</p>
         {lead.requirements && <p>{lead.requirements}</p>}{lead.notes && <p className="whitespace-pre-wrap">{lead.notes}</p>}
         {lead.agent && <p>Assigned agent · {lead.agent.fullName}</p>}
       </div>
