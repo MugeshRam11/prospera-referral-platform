@@ -101,26 +101,34 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
       <Sidebar user={user} isOpenMobile={mobile} onCloseMobile={() => setMobile(false)} />
-      <div className="lg:pl-72 transition-[padding] duration-200">
+      <div className="w-full min-w-0 lg:pl-72">
         <Header
           user={user}
           onOpenNewReferralModal={() => router.push('/referrals/new')}
           onToggleMobileMenu={() => setMobile(!mobile)}
           onSearch={(q) => window.dispatchEvent(new CustomEvent('prospera_search_query', { detail: q }))}
         />
-        <main className="mx-auto max-w-7xl p-5 sm:p-8">
-          <Orientation key={user.id} user={user} />
-          {restricted ? (
-            <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
-              This workspace requires a different role.{' '}
-              <Link href="/" className="font-semibold underline">
-                Open your dashboard
-              </Link>
-            </div>
-          ) : (
-            children
+        <div className="mx-auto w-full min-w-0 max-w-screen-2xl px-3 py-4 sm:px-5 xl:px-6">
+          {process.env.NEXT_PUBLIC_CLIENT_BETA === 'true' && (
+            <p className="mb-2 text-sm text-slate-700">
+              Client beta · Use synthetic records. Email, CRM sync, live property publication,
+              contract acceptance and payouts are disabled.
+            </p>
           )}
-        </main>
+          <Orientation key={user.id} user={user} />
+          <main className="min-w-0">
+            {restricted ? (
+              <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
+                This workspace requires a different role.{' '}
+                <Link href="/" className="font-semibold underline">
+                  Open your dashboard
+                </Link>
+              </div>
+            ) : (
+              children
+            )}
+          </main>
+        </div>
       </div>
       {lead && (
         <ReferralDetailModal

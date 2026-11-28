@@ -109,7 +109,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-5 sm:px-8 py-3 flex items-center justify-between gap-4 sticky top-0 z-30">
+    <header className="bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-3 sm:px-5 py-3 flex items-center justify-between gap-2 sticky top-0 z-30">
       <div className="flex items-center gap-3 flex-1 min-w-0">
         {/* Mobile Hamburger Toggle */}
         {onToggleMobileMenu && (
@@ -152,13 +152,7 @@ export const Header: React.FC<HeaderProps> = ({
               type="text"
               aria-label="Global search"
               className="w-full bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-slate-900 placeholder:text-slate-400 text-sm pl-10 pr-4 py-2 rounded-xl border border-slate-200/90 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-              placeholder={
-                user?.role === 'ADMIN'
-                  ? 'Search users, agencies, or audit logs...'
-                  : user?.role === 'COORDINATOR'
-                  ? 'Search assigned leads, clients, or services...'
-                  : 'Search properties, clients, or referrals...'
-              }
+              placeholder="Search"
               value={searchVal}
               onChange={handleSearchChange}
             />
@@ -221,51 +215,11 @@ export const Header: React.FC<HeaderProps> = ({
           </Link>
         )}
 
-        {/* Account Status Indicator */}
-        {accountStatusPill && (
-          <span
-            className={`hidden xl:inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${accountStatusPill.cls}`}
-          >
-            {accountStatusPill.label}
-          </span>
-        )}
-
-        {/* Operational Pill / Wallet Balance */}
-        {user?.role === 'ADMIN' ? (
-          <div className="hidden md:flex items-center gap-2 bg-white border border-slate-200/80 rounded-xl px-3 py-2 shadow-2xs">
-            <div className="w-5 h-5 rounded-full bg-rose-100 flex items-center justify-center text-rose-700">
-              <ShieldCheck size={12} />
-            </div>
-            <span className="text-xs font-bold text-slate-800 tracking-tight">
-              Platform Admin
-            </span>
-          </div>
-        ) : user?.role === 'COORDINATOR' ? (
-          <div className="hidden md:flex items-center gap-2 bg-white border border-slate-200/80 rounded-xl px-3 py-2 shadow-2xs">
-            <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700">
-              <Headphones size={12} />
-            </div>
-            <span className="text-xs font-bold text-slate-800 tracking-tight">
-              Desk Active
-            </span>
-          </div>
-        ) : (
-          <div className="hidden sm:flex items-center gap-2 bg-white border border-slate-200/80 rounded-xl px-3.5 py-2 shadow-2xs">
-            <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700">
-              <Coins size={12} />
-            </div>
-            <div className="flex flex-col text-left">
-              <span className="text-[10px] text-slate-400 font-medium leading-none">Withdrawable</span>
-              <span className="text-xs font-bold text-slate-900 tracking-tight mt-0.5">
-                Unavailable
-              </span>
-            </div>
-          </div>
-        )}
-
         {/* User Profile Pill Menu */}
         <div className="relative">
           <button
+            aria-label="Open profile menu"
+            aria-expanded={showUserDropdown}
             onClick={() => setShowUserDropdown(!showUserDropdown)}
             className="flex items-center gap-2.5 bg-white hover:bg-slate-50 border border-slate-200/80 rounded-xl px-2.5 py-1.5 shadow-2xs transition-colors"
           >
@@ -283,7 +237,7 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="absolute bottom-0 right-0 w-2 h-2 bg-emerald-500 rounded-full border-1.5 border-white" />
             </div>
 
-            <div className="hidden md:flex flex-col text-left">
+            <div className="hidden 2xl:flex flex-col text-left">
               <span className="text-sm font-semibold text-slate-900 leading-tight truncate max-w-[140px]">
                 {user?.fullName || 'Prospera Member'}
               </span>
@@ -296,12 +250,56 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {showUserDropdown && (
-            <div className="absolute right-0 top-11 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-2 text-xs">
+            <div className="absolute right-0 top-11 w-56 max-h-[75dvh] overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-2 text-xs">
               <div className="px-3 py-2 border-b border-slate-100 mb-1">
                 <p className="font-bold text-slate-900 truncate">{user?.fullName}</p>
                 <p className="text-[10px] text-slate-400 truncate">{user?.email}</p>
               </div>
 
+              <div className="space-y-2 px-2 py-1">
+                {/* Account Status Indicator */}
+                {accountStatusPill && (
+                  <span
+                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${accountStatusPill.cls}`}
+                  >
+                    {accountStatusPill.label}
+                  </span>
+                )}
+
+                {/* Operational Pill / Wallet Balance */}
+                {user?.role === 'ADMIN' ? (
+                  <div className="flex items-center gap-2 bg-white border border-slate-200/80 rounded-xl px-3 py-2 shadow-2xs">
+                    <div className="w-5 h-5 rounded-full bg-rose-100 flex items-center justify-center text-rose-700">
+                      <ShieldCheck size={12} />
+                    </div>
+                    <span className="text-xs font-bold text-slate-800 tracking-tight">
+                      Platform Admin
+                    </span>
+                  </div>
+                ) : user?.role === 'COORDINATOR' ? (
+                  <div className="flex items-center gap-2 bg-white border border-slate-200/80 rounded-xl px-3 py-2 shadow-2xs">
+                    <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700">
+                      <Headphones size={12} />
+                    </div>
+                    <span className="text-xs font-bold text-slate-800 tracking-tight">
+                      Desk Active
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 bg-white border border-slate-200/80 rounded-xl px-3.5 py-2 shadow-2xs">
+                    <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700">
+                      <Coins size={12} />
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="text-[10px] text-slate-400 font-medium leading-none">Withdrawable</span>
+                      <span className="text-xs font-bold text-slate-900 tracking-tight mt-0.5">
+                        Unavailable
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+              </div>
               <Link
                 href="/settings"
                 onClick={() => setShowUserDropdown(false)}

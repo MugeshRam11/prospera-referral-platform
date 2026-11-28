@@ -126,16 +126,16 @@ export default function AgencyPortalPage() {
   );
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 min-w-0 pb-12">
       {/* Agency Header Banner */}
       <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-blue-900/40">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-blue-600/30 border border-blue-500/40 text-blue-400 flex items-center justify-center flex-shrink-0">
               <Building2 size={28} />
             </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
+            <div className="min-w-0 break-words">
+              <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-extrabold text-white tracking-tight">
                   {agencyData?.agency?.name || 'Agency Portal'}
                 </h1>
@@ -165,7 +165,7 @@ export default function AgencyPortalPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => loadAgency()}
               disabled={isLoading}
@@ -187,7 +187,7 @@ export default function AgencyPortalPage() {
         </div>
 
         {/* Agency Metrics */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-slate-800">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-3 mt-6 pt-6 border-t border-slate-800">
           <div className="p-3 bg-white/5 rounded-2xl border border-white/5">
             <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
               Brokers & Staff
@@ -438,7 +438,7 @@ export default function AgencyPortalPage() {
       {/* Invite Agent Modal */}
       {isInviteModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+          <div className="bg-white rounded-3xl overflow-y-auto max-h-[90dvh] max-w-md w-full p-6 shadow-2xl border border-slate-200">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">

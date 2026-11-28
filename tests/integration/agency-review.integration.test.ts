@@ -24,7 +24,10 @@ let agencyId: string;
 let outsideAgencyId: string;
 
 beforeAll(async () => {
-  if (new URL(process.env.DATABASE_URL || '').pathname !== '/prospera_test') throw new Error('Requires isolated prospera_test');
+  const target = new URL(process.env.DATABASE_URL || '').pathname;
+  if (!['/prospera_test', '/prospera_beta_qa_20261128'].includes(target)) {
+    throw new Error('Requires a dedicated integration test database');
+  }
   setAuthRepository(new PrismaAuthRepository());
   setReferralRepository(new PrismaReferralRepository());
   const passwordHash = await argon2.hash(password);

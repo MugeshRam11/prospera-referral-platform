@@ -111,7 +111,7 @@ export default function AdminOverviewPage() {
       {/* 2. URGENT OPERATIONS ALERT BANNER (If tasks require attention) */}
       {totalUrgentTasks > 0 && (
         <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs flex-shrink-0">
               <AlertTriangle size={18} />
             </div>
@@ -150,7 +150,7 @@ export default function AdminOverviewPage() {
       )}
 
       {/* 3. FOUR ENTERPRISE KPI CLUSTERS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4">
         {/* CLUSTER 1: ORGANIZATION NETWORK */}
         <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex flex-col justify-between">
           <div>
@@ -343,9 +343,9 @@ export default function AdminOverviewPage() {
       </div>
 
       {/* 4. TWO-COLUMN OPERATIONS DASHBOARD */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
         {/* LEFT COLUMN: RECENT USER REGISTRATIONS & APPLICATIONS */}
-        <div className="lg:col-span-8 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+        <div className="min-w-0 xl:col-span-8 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
               <h3 className="text-base font-bold text-slate-900">
@@ -437,7 +437,7 @@ export default function AdminOverviewPage() {
         </div>
 
         {/* RIGHT COLUMN: RECENT AUDIT LOGS */}
-        <div className="lg:col-span-4 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
+        <div className="min-w-0 xl:col-span-4 bg-white border border-slate-200 rounded-2xl p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
               <h3 className="text-base font-bold text-slate-900">Audit Trail</h3>

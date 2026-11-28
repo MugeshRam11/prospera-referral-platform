@@ -70,16 +70,16 @@ export default function PartnerDashboardPage() {
   if (isLoading) return <p role="status">Loading partner workspace...</p>;
   if (errorMsg) return <p role="alert">{errorMsg} <button onClick={loadData}>Retry</button></p>;
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 min-w-0 pb-12">
       {/* Partner Hero Banner */}
       <div className="bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-emerald-800/40">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 flex items-center justify-center flex-shrink-0">
               <Briefcase size={28} />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0 break-words">
+              <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-extrabold text-white tracking-tight">
                   {currentUser?.companyName || 'Corporate Partner Portal'}
                 </h1>
@@ -93,7 +93,7 @@ export default function PartnerDashboardPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => loadData()}
               disabled={isLoading}
@@ -113,7 +113,7 @@ export default function PartnerDashboardPage() {
         </div>
 
         {/* Partner Metrics Summary */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-emerald-800/60">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-3 mt-6 pt-6 border-t border-emerald-800/60">
           <div className="p-3 bg-white/5 rounded-2xl border border-white/5">
             <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
               Total Referrals
@@ -156,12 +156,12 @@ export default function PartnerDashboardPage() {
       )}
 
       {/* Quick Action Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] gap-4">
         <Link
           href="/referrals/new"
           className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-slate-300 transition-all flex items-center justify-between group"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
               <Plus size={20} />
             </div>
@@ -179,7 +179,7 @@ export default function PartnerDashboardPage() {
           href="/commissions"
           className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-slate-300 transition-all flex items-center justify-between group"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
               <Coins size={20} />
             </div>
@@ -197,7 +197,7 @@ export default function PartnerDashboardPage() {
           href="/support"
           className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:border-slate-300 transition-all flex items-center justify-between group"
         >
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
               <Headphones size={20} />
             </div>

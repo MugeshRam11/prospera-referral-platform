@@ -109,7 +109,7 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 min-w-0 pb-12">
       {/* Admin Top Navigation & Header */}
       <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-md border border-slate-800">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-800">
@@ -118,7 +118,7 @@ export default function AdminLayout({
               <ShieldAlert size={24} />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-xl font-extrabold text-white tracking-tight">
                   Prospera Administration Portal
                 </h1>

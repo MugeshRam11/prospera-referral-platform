@@ -124,7 +124,7 @@ export default function DashboardPage() {
               Connect clients to prime UAE developments, competitive mortgages, and corporate advisory services.
             </p>
 
-            <div className="flex items-center gap-3 mt-4">
+            <div className="flex flex-wrap items-center gap-3 mt-4">
               <Link
                 href="/referrals/new"
                 className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-4 py-2 rounded-xl transition-colors shadow-md"
@@ -152,9 +152,9 @@ export default function DashboardPage() {
       </div>
 
       {/* 3. MAIN DASHBOARD TWO-COLUMN LAYOUT */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
         {/* LEFT COLUMN: QUICK ACTIONS + LIVE REFERRALS */}
-        <div className="lg:col-span-8 space-y-6">
+        <div className="min-w-0 xl:col-span-8 space-y-6">
           {/* A. QUICK ACTIONS */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
             <div className="flex items-center justify-between mb-1">
@@ -171,7 +171,7 @@ export default function DashboardPage() {
               Direct access to pipeline management, client onboarding, and payouts.
             </p>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-3">
               <Link
                 href="/referrals/new"
                 className="bg-blue-50/60 hover:bg-blue-50 border border-blue-200/70 rounded-xl p-3.5 flex flex-col items-center justify-center gap-2 transition-all group"
@@ -304,7 +304,7 @@ export default function DashboardPage() {
         </div>
 
         {/* RIGHT COLUMN: SERVICES & SUPPORT */}
-        <div className="lg:col-span-4 space-y-6">
+        <div className="min-w-0 xl:col-span-4 space-y-6">
           {/* A. OUR SERVICES */}
           <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
             <h3 className="text-base sm:text-lg font-bold text-slate-900">Ecosystem Services</h3>
@@ -321,7 +321,7 @@ export default function DashboardPage() {
                     href={'/referrals/new?service=' + srv.id}
                     className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50/80 transition-all group"
                   >
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                       <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${'bg-blue-50 text-blue-700'}`}>
                         <Icon size={17} />
                       </div>

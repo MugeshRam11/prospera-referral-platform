@@ -15,6 +15,16 @@ import { legalRouter } from '../modules/legal/legal.routes';
 
 const router = Router();
 
+if (process.env.CLIENT_BETA === 'true') {
+  router.use(['/auth/register', '/auth/verify-otp', '/auth/resend-otp'], (_req, res) => {
+    res.status(403).json({ success: false, error: { message: 'Access is by invitation. Use your assigned review account.' } });
+  });
+  router.use(['/integrations', '/properties', '/legal/accept'], (req, res, next) => {
+    if (req.method === 'GET' || req.method === 'HEAD') return next();
+    res.status(403).json({ success: false, error: { message: 'This action is disabled during client beta review.' } });
+  });
+}
+
 // Health routes
 router.use('/', healthRouter);
 

@@ -33,14 +33,17 @@ export function Orientation({ user }: { user: UserSummary }) {
     finally { setBusy(false); }
   }
   return <aside aria-label="Workspace orientation" className="mb-4 text-sm">
-    {error && <p role="alert">Workspace guide unavailable. {error}</p>}
-    {record && (record.state === 'active' ? <div className="space-y-3 rounded-2xl border border-blue-200 bg-white p-5">
-      <div className="flex items-baseline justify-between gap-3"><h2 className="text-lg font-bold">Welcome to Prospera · {name}</h2><button disabled={busy} onClick={() => save(step, 'skipped')}>Skip tour</button></div>
-      <p className="text-xs text-slate-500">Workspace guide · {step + 1} of {steps.length}</p>
-      <strong>{title}</strong><p>{description}</p>
-      <div className="flex flex-wrap gap-4 font-semibold text-blue-800"><Link href={href}>{title} →</Link>
-        {step > 0 && <button disabled={busy} onClick={() => save(step - 1, 'active')}>Previous</button>}
-        <button disabled={busy} onClick={() => step + 1 === steps.length ? save(step, 'complete') : save(step + 1, 'active')}>{step + 1 === steps.length ? 'Finish tour' : 'Next step'}</button></div>
-    </div> : <button disabled={busy} className="text-blue-800 underline" onClick={() => save(record.state === 'complete' ? 0 : step, 'active')}>{record.state === 'complete' ? 'Replay tour' : 'Resume tour'}</button>)}
+    <details className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+      <summary className="cursor-pointer font-semibold text-blue-800">Workspace guide · {name}</summary>
+      {error && <p role="alert">Workspace guide unavailable. {error}</p>}
+      {record && (record.state === 'active' ? <div className="space-y-3 rounded-2xl border border-blue-200 bg-white p-5">
+        <div className="flex items-baseline justify-between gap-3"><h2 className="text-lg font-bold">Welcome to Prospera · {name}</h2><button disabled={busy} onClick={() => save(step, 'skipped')}>Skip tour</button></div>
+        <p className="text-xs text-slate-500">Workspace guide · {step + 1} of {steps.length}</p>
+        <strong>{title}</strong><p>{description}</p>
+        <div className="flex flex-wrap gap-4 font-semibold text-blue-800"><Link href={href}>{title} →</Link>
+          {step > 0 && <button disabled={busy} onClick={() => save(step - 1, 'active')}>Previous</button>}
+          <button disabled={busy} onClick={() => step + 1 === steps.length ? save(step, 'complete') : save(step + 1, 'active')}>{step + 1 === steps.length ? 'Finish tour' : 'Next step'}</button></div>
+      </div> : <button disabled={busy} className="text-blue-800 underline" onClick={() => save(record.state === 'complete' ? 0 : step, 'active')}>{record.state === 'complete' ? 'Replay tour' : 'Resume tour'}</button>)}
+    </details>
   </aside>;
 }

@@ -126,16 +126,16 @@ export default function CoordinatorDashboardPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+    <div className="space-y-6 min-w-0 pb-12">
       {/* Coordinator Top Banner */}
       <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-slate-950 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-indigo-800/40">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 text-indigo-300 flex items-center justify-center flex-shrink-0">
               <Headphones size={28} />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0 break-words">
+              <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-extrabold text-white tracking-tight">
                   Coordinator Dispatch Desk
                 </h1>
@@ -149,7 +149,7 @@ export default function CoordinatorDashboardPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => loadData()}
               disabled={isLoading}
@@ -169,7 +169,7 @@ export default function CoordinatorDashboardPage() {
         </div>
 
         {/* Coordinator Metric Summary */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-indigo-800/60">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-3 mt-6 pt-6 border-t border-indigo-800/60">
           <div className="p-3 bg-white/5 rounded-2xl border border-white/5">
             <span className="text-[10px] uppercase font-bold text-indigo-300 tracking-wider">
               Pending Queue
@@ -215,7 +215,7 @@ export default function CoordinatorDashboardPage() {
 
       {/* Action / Queue Controls */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             onClick={() => setActiveTab('QUEUE')}
             className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${

@@ -316,13 +316,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-72 bg-[#0A1227] text-white flex flex-col justify-between transition-transform duration-300 lg:translate-x-0 ${
-          isOpenMobile ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed top-0 bottom-0 left-0 z-50 w-72 max-w-full bg-[#0A1227] text-white flex-col justify-between ${
+          isOpenMobile ? 'flex' : 'hidden lg:flex'
         } border-r border-slate-800/80 shadow-2xl overflow-y-auto`}
         aria-label="Application Navigation Sidebar"
       >
         {/* Top Header & Navigation */}
-        <div className="flex flex-col flex-1">
+        <div className="flex flex-col flex-1 shrink-0">
           {/* Brand Header */}
           <div className="px-6 py-5 flex items-center justify-between border-b border-slate-800/60">
             <Link href="/" className="flex items-center gap-3 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 rounded-lg">
